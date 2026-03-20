@@ -1,0 +1,38 @@
+{% extends "storage/base.html" %}
+{% block title %}首頁{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>我的檔案</h2>
+  <p><a href="{% url 'upload' %}">上傳新檔案</a></p>
+
+  {% if files %}
+    <table>
+      <thead>
+        <tr>
+          <th>檔名</th>
+          <th>大小</th>
+          <th>時間</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in files %}
+          <tr>
+            <td>{{ f.original_name }}</td>
+            <td>{{ f.size }}</td>
+            <td>{{ f.uploaded_at }}</td>
+            <td>
+              <a href="{% url 'download' f.id %}">下載</a>
+              |
+              <a href="{% url 'delete' f.id %}">刪除</a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>目前沒有檔案。</p>
+  {% endif %}
+</div>
+{% endblock %}

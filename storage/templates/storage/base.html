@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Cloud Drive{% endblock %}</title>
+  <style>
+    body { font-family: sans-serif; max-width: 900px; margin: 40px auto; padding: 0 16px; }
+    nav { display: flex; gap: 12px; align-items: center; margin-bottom: 24px; flex-wrap: wrap; }
+    a { text-decoration: none; }
+    .card { border: 1px solid #ddd; padding: 16px; border-radius: 8px; margin-bottom: 16px; }
+    input, button { padding: 8px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 8px; border-bottom: 1px solid #eee; text-align: left; }
+    .msg { background: #eef7ff; padding: 10px; border-radius: 6px; margin-bottom: 12px; }
+    form { margin: 0; }
+  </style>
+</head>
+<body>
+  <nav>
+    <strong>Cloud Drive</strong>
+    {% if user.is_authenticated %}
+      <span>你好，{{ user.username }}</span>
+      <a href="{% url 'dashboard' %}">首頁</a>
+      <a href="{% url 'upload' %}">上傳</a>
+      <form method="post" action="{% url 'logout' %}" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit">登出</button>
+      </form>
+    {% else %}
+      <a href="{% url 'login' %}">登入</a>
+      <a href="{% url 'register' %}">註冊</a>
+    {% endif %}
+  </nav>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="msg">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+
+  {% block content %}{% endblock %}
+</body>
+</html>

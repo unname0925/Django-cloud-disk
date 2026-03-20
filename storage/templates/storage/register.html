@@ -1,0 +1,13 @@
+{% extends "storage/base.html" %}
+{% block title %}註冊{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>註冊</h2>
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">建立帳號</button>
+  </form>
+</div>
+{% endblock %}

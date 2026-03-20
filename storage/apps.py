@@ -2,4 +2,8 @@ from django.apps import AppConfig
 
 
 class StorageConfig(AppConfig):
-    name = 'storage'
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "storage"
+
+    def ready(self):
+        from . import signals  # noqa
