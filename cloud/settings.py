@@ -8,6 +8,8 @@ DEBUG = os.environ.get("DEBUG", "True") == "True"
 
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "*").split(",")
 
+SECRET_URL_PREFIX = os.environ.get("SECRET_URL_PREFIX", "x8FqP2vM4wA1")
+
 INSTALLED_APPS = [
 
     "django.contrib.admin",
@@ -58,18 +60,7 @@ DATABASES = {
 }
 
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
-    },
+
 ]
 
 LANGUAGE_CODE = "zh-hant"
@@ -88,3 +79,6 @@ LOGOUT_REDIRECT_URL = "/login/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+LOGIN_URL = f"/{SECRET_URL_PREFIX}/login/"
+LOGIN_REDIRECT_URL = f"/{SECRET_URL_PREFIX}/"
+LOGOUT_REDIRECT_URL = f"/{SECRET_URL_PREFIX}/login/"

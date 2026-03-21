@@ -1,14 +1,10 @@
 from django.contrib import admin
 from django.http import HttpResponseRedirect
 from django.urls import include, path
-
-
-def root_redirect(request):
-    return HttpResponseRedirect("/login/")
+from django.conf import settings
 
 
 urlpatterns = [
-    path("admin/", admin.site.urls),
-    path("", include("storage.urls")),
-    path("", root_redirect),
+    path(f"{settings.SECRET_URL_PREFIX}/admin/", admin.site.urls),
+    path(f"{settings.SECRET_URL_PREFIX}/", include("storage.urls")),
 ]
