@@ -2,7 +2,7 @@ from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm
-from django.http import FileResponse
+from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 
 from .forms import RegisterForm, UploadForm
@@ -93,8 +93,13 @@ def uploadF(request):
 def downloadF(request, file_id):
     Temp = get_object_or_404(StoredFile, id=file_id, owner=request.user)
 
+    try:
+        file_handle = Temp.file.open("rb")
+    except FileNotFoundError:
+        raise Http404("檔案不存在")
+
     return FileResponse(
-        Temp.file.open("rb"),
+        file_handle,
         as_attachment=True,
         filename=Temp.original_name,
     )

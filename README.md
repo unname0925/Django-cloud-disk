@@ -31,8 +31,8 @@ cloud_disk/
 
 ## 環境需求
 
-* Python 3.11+
-* Django 4.x+
+* Python 3.12+
+* Django 6.0
 * SQLite
 
 ---
@@ -59,8 +59,9 @@ Windows CMD 範例：
 
 ```cmd
 set DJANGO_SECRET_KEY="隨機生成的長字串"
-set DEBUG="True"
-set ALLOWED_HOSTS="*"
+set DEBUG=True
+set ALLOWED_HOSTS=*
+set SECRET_URL_PREFIX=自訂的隨機字串
 ```
 
 macOS / Linux 範例：
@@ -69,13 +70,15 @@ macOS / Linux 範例：
 export DJANGO_SECRET_KEY="隨機生成的長字串"
 export DEBUG="True"
 export ALLOWED_HOSTS="*"
+export SECRET_URL_PREFIX="自訂的隨機字串"
 ```
 
 > 注意：
 >
 > * `DJANGO_SECRET_KEY` 用於 Django 安全性。
-> * `DEBUG=True` 為開發模式，正式上線建議設 `False`。
-> * `ALLOWED_HOSTS` 指定可訪問的 IP 或 `*` 允許全部。
+> * `DEBUG=True` 為開發模式；未設定時預設為 `False`，此時必須設定 `DJANGO_SECRET_KEY`，否則無法啟動。
+> * `ALLOWED_HOSTS` 指定可訪問的 IP（逗號分隔）或 `*` 允許全部，未設定時只允許 `localhost,127.0.0.1`。
+> * `SECRET_URL_PREFIX` 是網址前綴（例如 `/<前綴>/login/`），請自行設定，不要使用程式碼中的預設值。
 
 ---
 
@@ -90,6 +93,14 @@ python manage.py migrate
 
 ```bash
 python manage.py createsuperuser
+```
+
+---
+
+## 執行測試
+
+```bash
+DEBUG=True python manage.py test
 ```
 
 ---

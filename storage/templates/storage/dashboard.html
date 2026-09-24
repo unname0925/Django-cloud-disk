@@ -20,8 +20,8 @@
         {% for f in files %}
           <tr>
             <td>{{ f.original_name }}</td>
-            <td>{{ f.size }}</td>
-            <td>{{ f.uploaded_at }}</td>
+            <td>{{ f.file_size|filesizeformat }}</td>
+            <td>{{ f.uploaded_time }}</td>
             <td>
               <a href="{% url 'download' f.id %}">下載</a>
               |

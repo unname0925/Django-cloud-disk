@@ -1,12 +1,19 @@
 from pathlib import Path
 import os
 
+from django.core.exceptions import ImproperlyConfigured
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "test123123")
-DEBUG = os.environ.get("DEBUG", "True") == "True"
+DEBUG = os.environ.get("DEBUG", "False") == "True"
 
-ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "*").split(",")
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
+if not SECRET_KEY:
+    if not DEBUG:
+        raise ImproperlyConfigured("正式環境必須設定 DJANGO_SECRET_KEY 環境變數")
+    SECRET_KEY = "django-insecure-dev-only-key"
+
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
 SECRET_URL_PREFIX = os.environ.get("SECRET_URL_PREFIX", "x8FqP2vM4wA1")
 
@@ -60,7 +67,10 @@ DATABASES = {
 }
 
 AUTH_PASSWORD_VALIDATORS = [
-
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
 LANGUAGE_CODE = "zh-hant"
@@ -72,10 +82,6 @@ STATIC_URL = "static/"
 
 MEDIA_ROOT = BASE_DIR / "private_storage"
 MEDIA_URL = "/private-media/"
-LOGIN_URL = "/login/"
-LOGIN_REDIRECT_URL = "/"
-LOGOUT_REDIRECT_URL = "/login/"
-
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

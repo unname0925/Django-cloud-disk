@@ -10,7 +10,8 @@ def upload_to_user(instance, filename):
     Temp= Path(filename).name
     Temp = get_valid_filename(Temp)
     Temp = f"{uuid.uuid4().hex}_{Temp}"
-    return f"users/{instance.owner.profile.folder_uuid}/{Temp}"
+    profile, _ = UserProfile.objects.get_or_create(user=instance.owner)
+    return f"users/{profile.folder_uuid}/{Temp}"
 
 
 class UserProfile(models.Model):
