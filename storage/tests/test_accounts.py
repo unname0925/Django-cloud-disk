@@ -88,3 +88,32 @@ class LoginTests(StorageTestCase):
         self.assertRedirects(
             response, f"{reverse('storage:login')}?next={reverse('storage:browse')}"
         )
+
+
+@override_settings(LOGIN_MAX_ATTEMPTS=2)
+class ProxyIpTests(StorageTestCase):
+    def setUp(self):
+        super().setUp()
+        cache.clear()
+
+    def fail_login(self, forwarded_for):
+        return self.client.post(
+            reverse("storage:login"),
+            {"username": "alice", "password": "wrong"},
+            HTTP_X_FORWARDED_FOR=forwarded_for,
+        )
+
+    @override_settings(TRUST_PROXY_HEADERS=True)
+    def test_lockout_uses_forwarded_ip_behind_proxy(self):
+        self.fail_login("1.1.1.1")
+        self.fail_login("1.1.1.1")
+        self.assertEqual(self.fail_login("1.1.1.1").status_code, 429)
+        # 另一個真實 IP 不受影響
+        self.assertEqual(self.fail_login("2.2.2.2").status_code, 200)
+
+    @override_settings(TRUST_PROXY_HEADERS=False)
+    def test_forwarded_header_ignored_without_proxy(self):
+        # 沒有反向代理時，偽造 X-Forwarded-For 不能繞過鎖定
+        self.fail_login("1.1.1.1")
+        self.fail_login("2.2.2.2")
+        self.assertEqual(self.fail_login("3.3.3.3").status_code, 429)

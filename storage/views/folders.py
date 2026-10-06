@@ -1,9 +1,12 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.http import FileResponse
 from django.shortcuts import render
 
 from ..forms import FolderForm
 from ..models import Folder, StoredFile
+from ..services import trash
+from ..services.archive import build_zip
 from .common import get_owned_folder, redirect_to_folder
 
 
@@ -43,32 +46,28 @@ def rename_folder(request, folder_id):
     )
 
 
-def _descendant_ids(folder):
-    ids, frontier = [folder.pk], [folder.pk]
-    while frontier:
-        frontier = list(
-            Folder.objects.filter(parent_id__in=frontier).values_list("pk", flat=True)
-        )
-        ids.extend(frontier)
-    return ids
-
-
 @login_required
 def delete_folder(request, folder_id):
     folder = get_owned_folder(request, folder_id)
     if request.method == "POST":
-        parent = folder.parent
-        # 子資料夾與檔案會連帶刪除，實體檔案由 post_delete signal 清除
-        folder.delete()
-        messages.success(request, "資料夾已刪除")
-        return redirect_to_folder(parent)
+        trash.trash_folder(folder)
+        messages.success(request, "資料夾已移到資源回收筒")
+        return redirect_to_folder(folder.parent)
 
-    folder_ids = _descendant_ids(folder)
+    folder_ids = folder.descendant_ids()
     context = {
         "name": folder.name,
         "is_folder": True,
-        "file_count": StoredFile.objects.filter(folder_id__in=folder_ids).count(),
-        "subfolder_count": len(folder_ids) - 1,
+        "file_count": StoredFile.objects.active().filter(folder_id__in=folder_ids).count(),
+        "subfolder_count": Folder.objects.active().filter(pk__in=folder_ids).count() - 1,
         "cancel_folder": folder.parent,
     }
     return render(request, "storage/delete_confirm.html", context)
+
+
+@login_required
+def download_folder(request, folder_id=None):
+    folder = get_owned_folder(request, folder_id) if folder_id else None
+    archive, filename = build_zip(request.user, folder)
+    return FileResponse(archive, as_attachment=True, filename=filename,
+                        content_type="application/zip")

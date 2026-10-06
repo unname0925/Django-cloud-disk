@@ -1,13 +1,12 @@
 from datetime import timedelta
 
 from django import forms
-from django.conf import settings
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
-from django.template.defaultfilters import filesizeformat
 from django.utils import timezone
 
-from .models import Folder, UserProfile
+from .models import Folder
+from .services.uploads import UploadError, check_upload_allowed
 
 INVALID_NAME_CHARS = set('/\\:*?"<>|')
 
@@ -50,7 +49,7 @@ class FolderChoiceMixin:
 
     def limit_folders(self, field_name, user):
         field = self.fields[field_name]
-        field.queryset = Folder.objects.filter(owner=user).select_related("parent")
+        field.queryset = Folder.objects.active().filter(owner=user).select_related("parent")
         field.label_from_instance = lambda folder: " / ".join(
             f.name for f in folder.ancestors()
         )
@@ -72,19 +71,10 @@ class UploadForm(FolderChoiceMixin, forms.Form):
 
     def clean_files(self):
         files = self.cleaned_data["files"]
-        max_size = settings.STORAGE_MAX_UPLOAD_SIZE
-        for uploaded in files:
-            if uploaded.size > max_size:
-                raise forms.ValidationError(
-                    f"「{uploaded.name}」超過單檔上限 {filesizeformat(max_size)}"
-                )
-
-        remaining = UserProfile.for_user(self.user).remaining_bytes
-        total = sum(uploaded.size for uploaded in files)
-        if total > remaining:
-            raise forms.ValidationError(
-                f"容量不足：本次上傳 {filesizeformat(total)}，剩餘 {filesizeformat(remaining)}"
-            )
+        try:
+            check_upload_allowed(self.user, [(f.name, f.size) for f in files])
+        except UploadError as error:
+            raise forms.ValidationError(error.message)
         return files
 
 
@@ -101,7 +91,7 @@ class FolderForm(forms.Form):
 
     def clean_name(self):
         name = validate_item_name(self.cleaned_data["name"])
-        siblings = Folder.objects.filter(owner=self.user, parent=self.parent, name=name)
+        siblings = Folder.objects.active().filter(owner=self.user, parent=self.parent, name=name)
         if self.instance is not None:
             siblings = siblings.exclude(pk=self.instance.pk)
         if siblings.exists():
@@ -145,3 +135,18 @@ class ShareLinkForm(forms.Form):
         if not days:
             return None
         return timezone.now() + timedelta(days=int(days))
+
+
+class ChunkedUploadStartForm(forms.Form):
+    name = forms.CharField(max_length=1024)
+    size = forms.IntegerField(min_value=0)
+    folder = forms.ModelChoiceField(queryset=Folder.objects.none(), required=False)
+
+    def __init__(self, *args, user, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["folder"].queryset = Folder.objects.active().filter(owner=user)
+
+
+class ChunkForm(forms.Form):
+    offset = forms.IntegerField(min_value=0)
+    chunk = forms.FileField(allow_empty_file=True)

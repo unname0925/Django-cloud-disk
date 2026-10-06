@@ -44,7 +44,7 @@ def revoke_share(request, link_id):
 
 def _get_active_link(token):
     link = get_object_or_404(ShareLink.objects.select_related("file"), token=token)
-    if link.is_expired:
+    if link.is_expired or link.file.deleted_time is not None:
         raise Http404("分享連結已過期")
     return link
 

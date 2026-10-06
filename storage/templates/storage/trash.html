@@ -1,0 +1,51 @@
+{% extends "storage/base.html" %}
+{% block title %}資源回收筒{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>資源回收筒</h2>
+  <p class="muted">刪除的項目會保留 {{ retention_days }} 天，期間可以還原，之後自動永久刪除。回收筒裡的檔案仍會佔用容量。</p>
+
+  {% if folders or files %}
+    <form method="post" action="{% url 'storage:empty_trash' %}" class="toolbar"
+          onsubmit="return confirm('確定要永久刪除回收筒裡的所有項目嗎？此動作無法復原。');">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-danger">清空資源回收筒</button>
+    </form>
+
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>名稱</th><th>大小</th><th>刪除時間</th><th>自動刪除</th><th>操作</th></tr></thead>
+      <tbody>
+        {% for folder, expires in folders %}
+          <tr>
+            <td>📁 {{ folder.name }}</td>
+            <td class="muted">—</td>
+            <td>{{ folder.deleted_time|date:"Y-m-d H:i" }}</td>
+            <td class="muted">{{ expires|date:"Y-m-d" }}</td>
+            <td class="actions">
+              <form class="inline" method="post" action="{% url 'storage:restore_folder' folder.id %}">{% csrf_token %}<button type="submit" class="btn">還原</button></form>
+              <form class="inline" method="post" action="{% url 'storage:purge_folder' folder.id %}" onsubmit="return confirm('永久刪除後無法復原，確定嗎？');">{% csrf_token %}<button type="submit" class="btn btn-danger">永久刪除</button></form>
+            </td>
+          </tr>
+        {% endfor %}
+        {% for f, expires in files %}
+          <tr>
+            <td>📄 {{ f.original_name }}</td>
+            <td>{{ f.file_size|filesizeformat }}</td>
+            <td>{{ f.deleted_time|date:"Y-m-d H:i" }}</td>
+            <td class="muted">{{ expires|date:"Y-m-d" }}</td>
+            <td class="actions">
+              <form class="inline" method="post" action="{% url 'storage:restore_file' f.id %}">{% csrf_token %}<button type="submit" class="btn">還原</button></form>
+              <form class="inline" method="post" action="{% url 'storage:purge_file' f.id %}" onsubmit="return confirm('永久刪除後無法復原，確定嗎？');">{% csrf_token %}<button type="submit" class="btn btn-danger">永久刪除</button></form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  {% else %}
+    <p class="muted">資源回收筒是空的。</p>
+  {% endif %}
+</div>
+{% endblock %}

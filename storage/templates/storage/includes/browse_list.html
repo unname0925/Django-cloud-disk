@@ -1,0 +1,37 @@
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>名稱</th>{% if query %}<th>位置</th>{% endif %}<th>大小</th><th>上傳時間</th><th>操作</th></tr>
+  </thead>
+  <tbody>
+    {% for sub in folders %}
+      <tr>
+        <td>📁 <a href="{% url 'storage:browse_folder' sub.id %}">{{ sub.name }}</a></td>
+        {% if query %}<td class="muted">{{ sub.parent.name|default:"根目錄" }}</td>{% endif %}
+        <td class="muted">—</td>
+        <td class="muted">{{ sub.created_time|date:"Y-m-d H:i" }}</td>
+        <td class="actions">
+          <a href="{% url 'storage:download_folder' sub.id %}">下載 zip</a>
+          <a href="{% url 'storage:rename_folder' sub.id %}">重新命名</a>
+          <a href="{% url 'storage:delete_folder' sub.id %}">刪除</a>
+        </td>
+      </tr>
+    {% endfor %}
+    {% for f in files %}
+      <tr>
+        <td>📄 {% if f.is_previewable %}<a href="{% url 'storage:preview_file' f.id %}" target="_blank" rel="noopener">{{ f.original_name }}</a>{% else %}{{ f.original_name }}{% endif %}</td>
+        {% if query %}<td class="muted">{{ f.folder.name|default:"根目錄" }}</td>{% endif %}
+        <td>{{ f.file_size|filesizeformat }}</td>
+        <td>{{ f.uploaded_time|date:"Y-m-d H:i" }}</td>
+        <td class="actions">
+          <a href="{% url 'storage:download_file' f.id %}">下載</a>
+          <a href="{% url 'storage:manage_shares' f.id %}">分享</a>
+          <a href="{% url 'storage:rename_file' f.id %}">重新命名</a>
+          <a href="{% url 'storage:move_file' f.id %}">移動</a>
+          <a href="{% url 'storage:delete_file' f.id %}">刪除</a>
+        </td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>

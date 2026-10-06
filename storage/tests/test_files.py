@@ -156,14 +156,18 @@ class FileActionTests(StorageTestCase):
         stored.refresh_from_db()
         self.assertIsNone(stored.folder)
 
-    def test_delete_removes_file_from_disk(self):
+    def test_delete_moves_file_to_trash(self):
         stored = self.upload_as(self.alice)
-        name, storage = stored.file.name, stored.file.storage
         with self.captureOnCommitCallbacks(execute=True):
             response = self.client.post(reverse("storage:delete_file", args=[stored.pk]))
         self.assertRedirects(response, reverse("storage:browse"))
-        self.assertFalse(StoredFile.objects.filter(pk=stored.pk).exists())
-        self.assertFalse(storage.exists(name))
+
+        stored.refresh_from_db()
+        self.assertIsNotNone(stored.deleted_time)
+        self.assertTrue(stored.file.storage.exists(stored.file.name))
+        self.assertNotContains(self.client.get(reverse("storage:browse")), "hello.txt")
+        download = self.client.get(reverse("storage:download_file", args=[stored.pk]))
+        self.assertEqual(download.status_code, 404)
 
     def test_deleting_user_removes_files_from_disk(self):
         stored = self.upload_as(self.alice)

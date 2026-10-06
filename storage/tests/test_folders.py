@@ -53,21 +53,28 @@ class FolderTests(StorageTestCase):
         docs.refresh_from_db()
         self.assertEqual(docs.name, "papers")
 
-    def test_delete_folder_removes_contents_from_disk(self):
+    def test_delete_folder_moves_contents_to_trash(self):
         docs = Folder.objects.create(owner=self.alice, name="docs")
         sub = Folder.objects.create(owner=self.alice, parent=docs, name="sub")
         self.upload(("a.txt", b"1"), folder=docs)
         self.upload(("b.txt", b"2"), folder=sub)
-        stored = list(StoredFile.objects.all())
 
         confirm = self.client.get(reverse("storage:delete_folder", args=[docs.pk]))
         self.assertEqual(confirm.context["file_count"], 2)
         self.assertEqual(confirm.context["subfolder_count"], 1)
 
-        with self.captureOnCommitCallbacks(execute=True):
-            self.client.post(reverse("storage:delete_folder", args=[docs.pk]))
+        self.client.post(reverse("storage:delete_folder", args=[docs.pk]))
 
-        self.assertFalse(Folder.objects.exists())
-        self.assertFalse(StoredFile.objects.exists())
-        for f in stored:
-            self.assertFalse(f.file.storage.exists(f.file.name))
+        self.assertFalse(Folder.objects.active().exists())
+        self.assertFalse(StoredFile.objects.active().exists())
+        self.assertEqual(Folder.objects.trashed().count(), 2)
+        self.assertEqual(StoredFile.objects.trashed().count(), 2)
+        self.assertEqual(
+            self.client.get(reverse("storage:browse_folder", args=[sub.pk])).status_code, 404
+        )
+
+    def test_can_reuse_name_of_trashed_folder(self):
+        docs = Folder.objects.create(owner=self.alice, name="docs")
+        self.client.post(reverse("storage:delete_folder", args=[docs.pk]))
+        self.client.post(reverse("storage:create_folder"), {"name": "docs"})
+        self.assertEqual(Folder.objects.active().filter(name="docs").count(), 1)

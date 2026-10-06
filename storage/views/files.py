@@ -1,9 +1,15 @@
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.http import FileResponse, Http404
 from django.shortcuts import redirect, render
+from django.views.decorators.cache import cache_control
 
 from ..forms import MoveFileForm, RenameFileForm, UploadForm
 from ..models import Folder, StoredFile
+from ..services import trash
+from ..services.thumbnails import get_thumbnail_path
+from ..services.uploads import clean_filename
 from .common import file_response, get_owned_file, redirect_to_folder
 
 
@@ -19,7 +25,7 @@ def upload(request):
                     owner=request.user,
                     folder=folder,
                     file=uploaded,
-                    original_name=uploaded.name,
+                    original_name=clean_filename(uploaded.name),
                     file_size=uploaded.size,
                 )
             messages.success(request, f"已上傳 {len(files)} 個檔案")
@@ -27,13 +33,17 @@ def upload(request):
     else:
         folder_param = request.GET.get("folder", "")
         initial_folder = (
-            Folder.objects.filter(owner=request.user, pk=folder_param).first()
+            Folder.objects.active().filter(owner=request.user, pk=folder_param).first()
             if folder_param.isdigit()
             else None
         )
         form = UploadForm(user=request.user, initial={"folder": initial_folder})
 
-    return render(request, "storage/upload.html", {"form": form})
+    return render(
+        request,
+        "storage/upload.html",
+        {"form": form, "chunk_size": settings.STORAGE_CHUNK_SIZE},
+    )
 
 
 @login_required
@@ -47,6 +57,15 @@ def preview_file(request, file_id):
     if not stored.is_previewable:
         return redirect("storage:download_file", file_id=stored.pk)
     return file_response(stored, as_attachment=False)
+
+
+@login_required
+@cache_control(private=True, max_age=7 * 24 * 3600)
+def thumbnail(request, file_id):
+    path = get_thumbnail_path(get_owned_file(request, file_id))
+    if path is None:
+        raise Http404("無法產生縮圖")
+    return FileResponse(open(path, "rb"), content_type="image/jpeg")
 
 
 @login_required
@@ -95,10 +114,9 @@ def move_file(request, file_id):
 def delete_file(request, file_id):
     stored = get_owned_file(request, file_id)
     if request.method == "POST":
-        folder = stored.folder
-        stored.delete()
-        messages.success(request, "檔案已刪除")
-        return redirect_to_folder(folder)
+        trash.trash_file(stored)
+        messages.success(request, "檔案已移到資源回收筒")
+        return redirect_to_folder(stored.folder)
 
     return render(
         request,

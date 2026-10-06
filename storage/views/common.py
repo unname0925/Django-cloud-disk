@@ -5,11 +5,11 @@ from ..models import Folder, StoredFile
 
 
 def get_owned_folder(request, folder_id):
-    return get_object_or_404(Folder, pk=folder_id, owner=request.user)
+    return get_object_or_404(Folder.objects.active(), pk=folder_id, owner=request.user)
 
 
 def get_owned_file(request, file_id):
-    return get_object_or_404(StoredFile, pk=file_id, owner=request.user)
+    return get_object_or_404(StoredFile.objects.active(), pk=file_id, owner=request.user)
 
 
 def redirect_to_folder(folder):

@@ -11,8 +11,17 @@ from django.views.decorators.http import require_POST
 from ..forms import RegisterForm
 
 
+def client_ip(request):
+    if settings.TRUST_PROXY_HEADERS:
+        # 反向代理會把真實 IP 附加在 X-Forwarded-For 最後面
+        forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
+        if forwarded:
+            return forwarded.split(",")[-1].strip()
+    return request.META.get("REMOTE_ADDR", "")
+
+
 def _login_failure_key(request):
-    return f"login-failures:{request.META.get('REMOTE_ADDR', '')}"
+    return f"login-failures:{client_ip(request)}"
 
 
 def _redirect_after_login(request):

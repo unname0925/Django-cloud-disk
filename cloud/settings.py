@@ -51,6 +51,18 @@ STORAGE_DEFAULT_QUOTA = env_int("STORAGE_DEFAULT_QUOTA_MB", 1024) * MB
 # 單一檔案上傳大小上限
 STORAGE_MAX_UPLOAD_SIZE = env_int("STORAGE_MAX_UPLOAD_SIZE_MB", 100) * MB
 
+# 資源回收筒保留天數，超過後自動永久刪除
+STORAGE_TRASH_RETENTION_DAYS = env_int("STORAGE_TRASH_RETENTION_DAYS", 30)
+
+# 拖曳上傳時每個分段的大小；上傳中斷可從最後完成的分段續傳
+STORAGE_CHUNK_SIZE = env_int("STORAGE_CHUNK_SIZE_MB", 5) * MB
+
+# 未完成的分段上傳保留多久（小時），超過後由 cleanup_storage 指令清除
+STORAGE_UPLOAD_SESSION_HOURS = env_int("STORAGE_UPLOAD_SESSION_HOURS", 24)
+
+# 縮圖最長邊（像素）
+STORAGE_THUMBNAIL_SIZE = 320
+
 # 同一個 IP 連續登入失敗幾次後鎖定，以及鎖定秒數
 LOGIN_MAX_ATTEMPTS = env_int("LOGIN_MAX_ATTEMPTS", 5)
 LOGIN_LOCKOUT_SECONDS = env_int("LOGIN_LOCKOUT_SECONDS", 15 * 60)
@@ -69,6 +81,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -101,15 +114,20 @@ ASGI_APPLICATION = "cloud.asgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "NAME": os.environ.get("DATABASE_PATH", BASE_DIR / "db.sqlite3"),
     }
 }
 
-CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+# 多個 worker（例如 gunicorn）時請設定 CACHE_DIR，讓登入失敗次數在 worker 之間共用
+if os.environ.get("CACHE_DIR"):
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
+            "LOCATION": os.environ["CACHE_DIR"],
+        }
     }
-}
+else:
+    CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
@@ -125,9 +143,13 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
+}
 
 # 使用者檔案只能透過 view 檢查權限後下載，不會直接對外提供
-MEDIA_ROOT = BASE_DIR / "private_storage"
+MEDIA_ROOT = Path(os.environ.get("MEDIA_ROOT", BASE_DIR / "private_storage"))
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -143,3 +165,10 @@ SESSION_COOKIE_SECURE = USE_HTTPS
 CSRF_COOKIE_SECURE = USE_HTTPS
 SECURE_SSL_REDIRECT = USE_HTTPS
 CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS", "")
+
+# 在 Caddy / nginx 等反向代理後方時設為 True：
+# 透過 X-Forwarded-Proto 判斷 HTTPS，並用 X-Forwarded-For 取得使用者真實 IP。
+# 沒有反向代理時請保持 False，否則使用者可以偽造 IP 繞過登入鎖定。
+TRUST_PROXY_HEADERS = env_bool("TRUST_PROXY_HEADERS", False)
+if TRUST_PROXY_HEADERS:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

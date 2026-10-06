@@ -1,4 +1,4 @@
-<!doctype html>
+{% load static %}<!doctype html>
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8">
@@ -30,8 +30,8 @@
     input, select, button, .btn { font: inherit; padding: 7px 12px; border-radius: 6px; border: 1px solid var(--border);
                                   background: var(--card); color: var(--text); }
     button, .btn { cursor: pointer; display: inline-block; }
-    .btn-primary, button[type=submit] { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
-    nav button[type=submit] { background: var(--card); color: var(--text); border-color: var(--border); }
+    /* 沒有指定樣式的送出按鈕視為主要按鈕；加上 .btn 的則依各自的樣式 */
+    .btn-primary, button[type=submit]:not(.btn) { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
     .btn-danger { background: var(--danger); color: #fff; border-color: var(--danger); }
     .btn:hover { text-decoration: none; }
     .inline { display: inline; margin: 0; }
@@ -54,12 +54,49 @@
     .helptext, .errorlist { font-size: .85rem; color: var(--muted); }
     .errorlist { color: var(--danger); padding-left: 18px; }
     code.link { word-break: break-all; }
+
+    /* 上傳區 */
+    .upload-zone { border: 2px dashed var(--border); border-radius: 10px; padding: 14px; text-align: center; margin-bottom: 16px; }
+    .upload-zone p { margin: 0; }
+    .upload-list { list-style: none; padding: 0; margin: 10px 0 0; text-align: left; }
+    .upload-item { padding: 6px 0; border-top: 1px solid var(--border); }
+    .upload-row { display: flex; gap: 8px; align-items: center; }
+    .upload-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .upload-item progress { width: 100%; height: 6px; }
+    .upload-item.failed .upload-status { color: var(--danger); }
+    body.dragging::after { content: "放開即可上傳"; position: fixed; inset: 0; display: grid; place-items: center;
+      font-size: 1.6rem; font-weight: 700; color: var(--accent); background: color-mix(in srgb, var(--bg) 85%, transparent);
+      border: 4px dashed var(--accent); pointer-events: none; z-index: 50; }
+
+    /* 相簿模式 */
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+    .tile { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; }
+    .tile .thumb { aspect-ratio: 1; display: grid; place-items: center; background: var(--bg); font-size: 2.6rem; color: var(--text); }
+    .tile .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .tile .meta { padding: 6px 8px; font-size: .85rem; }
+    .tile .meta .name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tile .meta .actions a { margin-right: 6px; }
+    .view-toggle a { padding: 4px 8px; }
+    .view-toggle a.active { font-weight: 700; text-decoration: underline; }
+
+    /* 燈箱 */
+    .lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.9); display: flex; align-items: center;
+      justify-content: center; z-index: 100; }
+    .lightbox[hidden] { display: none; }
+    .lightbox figure { margin: 0; max-width: 90vw; max-height: 90vh; text-align: center; }
+    .lightbox img { max-width: 90vw; max-height: 82vh; object-fit: contain; }
+    .lightbox figcaption { color: #eee; margin-top: 8px; }
+    .lightbox button { position: absolute; background: none; border: 0; color: #fff; font-size: 2.5rem; cursor: pointer; }
+    .lightbox-close { top: 8px; right: 16px; }
+    .lightbox-prev { left: 8px; }
+    .lightbox-next { right: 8px; }
   </style>
 </head>
 <body>
   <nav>
     <a class="brand" href="{% url 'storage:browse' %}">☁️ Cloud Drive</a>
     {% if user.is_authenticated %}
+      <a href="{% url 'storage:trash' %}">資源回收筒</a>
       <span class="muted">{{ user.username }}</span>
       {% if user.is_staff %}<a href="{% url 'admin:index' %}">後台</a>{% endif %}
       <form class="inline" method="post" action="{% url 'storage:logout' %}">
@@ -77,5 +114,6 @@
   {% endfor %}
 
   {% block content %}{% endblock %}
+  {% block scripts %}{% endblock %}
 </body>
 </html>

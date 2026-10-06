@@ -4,6 +4,7 @@ from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
 from .models import StoredFile, UserProfile
+from .services.thumbnails import delete_thumbnail
 
 
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
@@ -24,4 +25,9 @@ def delete_file_from_disk(sender, instance, **kwargs):
     if not name:
         return
     storage = instance.file.storage
-    transaction.on_commit(lambda: storage.delete(name))
+
+    def remove_files():
+        storage.delete(name)
+        delete_thumbnail(storage, name)
+
+    transaction.on_commit(remove_files)

@@ -66,7 +66,15 @@ class ShareLinkTests(StorageTestCase):
         self.assertEqual(response.status_code, 404)
         self.assertTrue(ShareLink.objects.exists())
 
-    def test_link_removed_with_file(self):
+    def test_link_disabled_while_file_in_trash(self):
+        link = self.create_link()
+        self.client.post(reverse("storage:delete_file", args=[self.stored.pk]))
+        self.client.logout()
+        url = reverse("storage:shared_download", args=[link.token])
+        self.assertEqual(self.client.get(url).status_code, 404)
+
+    def test_link_removed_when_file_purged(self):
         self.create_link()
         self.client.post(reverse("storage:delete_file", args=[self.stored.pk]))
+        self.client.post(reverse("storage:purge_file", args=[self.stored.pk]))
         self.assertFalse(ShareLink.objects.exists())
