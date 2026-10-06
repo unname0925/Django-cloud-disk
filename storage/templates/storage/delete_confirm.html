@@ -4,12 +4,14 @@
 {% block content %}
 <div class="card">
   <h2>確認刪除</h2>
-  <p>你確定要刪除：<strong>{{ file.original_name }}</strong> 嗎？</p>
-
+  <p>你確定要刪除{% if is_folder %}資料夾{% endif %}：<strong>{{ name }}</strong> 嗎？</p>
+  {% if is_folder and file_count or is_folder and subfolder_count %}
+    <p class="muted">裡面的 {{ subfolder_count }} 個子資料夾和 {{ file_count }} 個檔案會一併刪除，無法復原。</p>
+  {% endif %}
   <form method="post">
     {% csrf_token %}
-    <button type="submit">確定刪除</button>
-    <a href="{% url 'dashboard' %}">取消</a>
+    <button type="submit" class="btn btn-danger">確定刪除</button>
+    {% include "storage/includes/cancel_link.html" %}
   </form>
 </div>
 {% endblock %}

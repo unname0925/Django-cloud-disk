@@ -1,11 +1,33 @@
-from pathlib import Path
 import os
+from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-DEBUG = os.environ.get("DEBUG", "False") == "True"
+
+def env_bool(name, default):
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in ("1", "true", "yes", "on")
+
+
+def env_int(name, default):
+    value = os.environ.get(name)
+    return int(value) if value else default
+
+
+def env_list(name, default):
+    value = os.environ.get(name, default)
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
+MB = 1024 * 1024
+
+# --- 基本設定 ---------------------------------------------------------------
+
+DEBUG = env_bool("DEBUG", False)
 
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
 if not SECRET_KEY:
@@ -13,12 +35,29 @@ if not SECRET_KEY:
         raise ImproperlyConfigured("正式環境必須設定 DJANGO_SECRET_KEY 環境變數")
     SECRET_KEY = "django-insecure-dev-only-key"
 
-ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", "localhost,127.0.0.1")
 
-SECRET_URL_PREFIX = os.environ.get("SECRET_URL_PREFIX", "x8FqP2vM4wA1")
+# 所有頁面都掛在這個前綴底下，請透過環境變數設定自己的值
+SECRET_URL_PREFIX = os.environ.get("SECRET_URL_PREFIX", "x8FqP2vM4wA1").strip("/")
+
+# --- 雲端硬碟功能設定 -------------------------------------------------------
+
+# 是否開放註冊；只給自己和家人用時建議關閉，改由管理員在後台建立帳號
+ALLOW_REGISTRATION = env_bool("ALLOW_REGISTRATION", True)
+
+# 每位使用者的預設容量（可在後台針對個別使用者調整）
+STORAGE_DEFAULT_QUOTA = env_int("STORAGE_DEFAULT_QUOTA_MB", 1024) * MB
+
+# 單一檔案上傳大小上限
+STORAGE_MAX_UPLOAD_SIZE = env_int("STORAGE_MAX_UPLOAD_SIZE_MB", 100) * MB
+
+# 同一個 IP 連續登入失敗幾次後鎖定，以及鎖定秒數
+LOGIN_MAX_ATTEMPTS = env_int("LOGIN_MAX_ATTEMPTS", 5)
+LOGIN_LOCKOUT_SECONDS = env_int("LOGIN_LOCKOUT_SECONDS", 15 * 60)
+
+# --- Django 設定 ------------------------------------------------------------
 
 INSTALLED_APPS = [
-
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -26,7 +65,6 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "storage.apps.StorageConfig",
-
 ]
 
 MIDDLEWARE = [
@@ -51,6 +89,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "storage.context_processors.site_settings",
             ],
         },
     },
@@ -63,6 +102,12 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": BASE_DIR / "db.sqlite3",
+    }
+}
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
     }
 }
 
@@ -79,12 +124,22 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
+# 使用者檔案只能透過 view 檢查權限後下載，不會直接對外提供
 MEDIA_ROOT = BASE_DIR / "private_storage"
-MEDIA_URL = "/private-media/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-LOGIN_URL = f"/{SECRET_URL_PREFIX}/login/"
-LOGIN_REDIRECT_URL = f"/{SECRET_URL_PREFIX}/"
-LOGOUT_REDIRECT_URL = f"/{SECRET_URL_PREFIX}/login/"
+LOGIN_URL = "storage:login"
+LOGIN_REDIRECT_URL = "storage:browse"
+LOGOUT_REDIRECT_URL = "storage:login"
+
+# --- HTTPS ------------------------------------------------------------------
+
+# 有架 HTTPS（例如 nginx + Let's Encrypt）時設為 True，Cookie 只會透過 HTTPS 傳送
+USE_HTTPS = env_bool("USE_HTTPS", False)
+SESSION_COOKIE_SECURE = USE_HTTPS
+CSRF_COOKIE_SECURE = USE_HTTPS
+SECURE_SSL_REDIRECT = USE_HTTPS
+CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS", "")

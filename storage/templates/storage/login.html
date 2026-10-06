@@ -4,10 +4,13 @@
 {% block content %}
 <div class="card">
   <h2>登入</h2>
-  <form method="post">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">登入</button>
-  </form>
+  {% if not locked %}
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <input type="hidden" name="next" value="{{ next }}">
+      <button type="submit">登入</button>
+    </form>
+  {% endif %}
 </div>
 {% endblock %}

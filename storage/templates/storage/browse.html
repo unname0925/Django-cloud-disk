@@ -1,0 +1,83 @@
+{% extends "storage/base.html" %}
+{% block title %}{% if folder %}{{ folder.name }}{% else %}我的檔案{% endif %}{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="breadcrumb">
+    <a href="{% url 'storage:browse' %}">我的檔案</a>
+    {% for crumb in breadcrumbs %}
+      / {% if forloop.last %}<strong>{{ crumb.name }}</strong>{% else %}<a href="{% url 'storage:browse_folder' crumb.id %}">{{ crumb.name }}</a>{% endif %}
+    {% endfor %}
+  </div>
+
+  <div class="toolbar">
+    <a class="btn btn-primary" href="{% url 'storage:upload' %}{% if folder %}?folder={{ folder.id }}{% endif %}">上傳檔案</a>
+    {% if folder %}
+      <a class="btn" href="{% url 'storage:create_subfolder' folder.id %}">新增資料夾</a>
+    {% else %}
+      <a class="btn" href="{% url 'storage:create_folder' %}">新增資料夾</a>
+    {% endif %}
+    <form method="get">
+      <input type="search" name="q" value="{{ query }}" placeholder="搜尋所有檔案與資料夾" aria-label="搜尋">
+      <select name="sort" aria-label="排序">
+        <option value="-time" {% if sort == "-time" %}selected{% endif %}>最新上傳</option>
+        <option value="time" {% if sort == "time" %}selected{% endif %}>最舊上傳</option>
+        <option value="name" {% if sort == "name" %}selected{% endif %}>名稱 A→Z</option>
+        <option value="-name" {% if sort == "-name" %}selected{% endif %}>名稱 Z→A</option>
+        <option value="-size" {% if sort == "-size" %}selected{% endif %}>檔案由大到小</option>
+        <option value="size" {% if sort == "size" %}selected{% endif %}>檔案由小到大</option>
+      </select>
+      <button type="submit" class="btn">套用</button>
+      {% if query %}<a class="btn" href="{{ request.path }}">清除搜尋</a>{% endif %}
+    </form>
+  </div>
+
+  {% if query %}<p class="muted">「{{ query }}」的搜尋結果</p>{% endif %}
+
+  {% if folders or files %}
+    <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>名稱</th>{% if query %}<th>位置</th>{% endif %}<th>大小</th><th>上傳時間</th><th>操作</th></tr>
+      </thead>
+      <tbody>
+        {% for sub in folders %}
+          <tr>
+            <td>📁 <a href="{% url 'storage:browse_folder' sub.id %}">{{ sub.name }}</a></td>
+            {% if query %}<td class="muted">{{ sub.parent.name|default:"根目錄" }}</td>{% endif %}
+            <td class="muted">—</td>
+            <td class="muted">{{ sub.created_time|date:"Y-m-d H:i" }}</td>
+            <td class="actions">
+              <a href="{% url 'storage:rename_folder' sub.id %}">重新命名</a>
+              <a href="{% url 'storage:delete_folder' sub.id %}">刪除</a>
+            </td>
+          </tr>
+        {% endfor %}
+        {% for f in files %}
+          <tr>
+            <td>📄 {% if f.is_previewable %}<a href="{% url 'storage:preview_file' f.id %}" target="_blank" rel="noopener">{{ f.original_name }}</a>{% else %}{{ f.original_name }}{% endif %}</td>
+            {% if query %}<td class="muted">{{ f.folder.name|default:"根目錄" }}</td>{% endif %}
+            <td>{{ f.file_size|filesizeformat }}</td>
+            <td>{{ f.uploaded_time|date:"Y-m-d H:i" }}</td>
+            <td class="actions">
+              <a href="{% url 'storage:download_file' f.id %}">下載</a>
+              <a href="{% url 'storage:manage_shares' f.id %}">分享</a>
+              <a href="{% url 'storage:rename_file' f.id %}">重新命名</a>
+              <a href="{% url 'storage:move_file' f.id %}">移動</a>
+              <a href="{% url 'storage:delete_file' f.id %}">刪除</a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  {% else %}
+    <p class="muted">{% if query %}找不到符合的項目。{% else %}這裡還沒有檔案。{% endif %}</p>
+  {% endif %}
+</div>
+
+<div class="card usage">
+  <div>已使用 {{ used_bytes|filesizeformat }} / {{ quota_bytes|filesizeformat }}（{{ usage_percent }}%）</div>
+  <div class="bar"><div class="fill{% if usage_percent >= 90 %} full{% endif %}" style="width: {{ usage_percent }}%"></div></div>
+</div>
+{% endblock %}

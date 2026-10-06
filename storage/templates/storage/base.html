@@ -3,41 +3,78 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Cloud Drive{% endblock %}</title>
+  <title>{% block title %}Cloud Drive{% endblock %} · Cloud Drive</title>
   <style>
-    body { font-family: sans-serif; max-width: 900px; margin: 40px auto; padding: 0 16px; }
-    nav { display: flex; gap: 12px; align-items: center; margin-bottom: 24px; flex-wrap: wrap; }
-    a { text-decoration: none; }
-    .card { border: 1px solid #ddd; padding: 16px; border-radius: 8px; margin-bottom: 16px; }
-    input, button { padding: 8px; }
+    :root {
+      --bg: #f6f7f9; --card: #fff; --text: #1d2330; --muted: #6b7280;
+      --border: #e3e6eb; --accent: #2563eb; --accent-text: #fff;
+      --danger: #dc2626; --ok-bg: #e8f5ec; --err-bg: #fdecec; --bar: #e5e7eb;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #12151b; --card: #1b1f27; --text: #e6e8ec; --muted: #9aa3b2;
+        --border: #2c323d; --accent: #4f8cff; --accent-text: #fff;
+        --danger: #f87171; --ok-bg: #173226; --err-bg: #3a1c1c; --bar: #2c323d;
+      }
+    }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, "Noto Sans TC", sans-serif; background: var(--bg);
+           color: var(--text); max-width: 1000px; margin: 0 auto; padding: 24px 16px; line-height: 1.5; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    nav { display: flex; gap: 16px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; }
+    nav .brand { font-weight: 700; font-size: 1.15rem; margin-right: auto; color: var(--text); }
+    .card { background: var(--card); border: 1px solid var(--border); padding: 20px; border-radius: 10px; margin-bottom: 16px; }
+    .msg { padding: 10px 14px; border-radius: 8px; margin-bottom: 12px; background: var(--ok-bg); }
+    .msg.error { background: var(--err-bg); }
+    input, select, button, .btn { font: inherit; padding: 7px 12px; border-radius: 6px; border: 1px solid var(--border);
+                                  background: var(--card); color: var(--text); }
+    button, .btn { cursor: pointer; display: inline-block; }
+    .btn-primary, button[type=submit] { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+    nav button[type=submit] { background: var(--card); color: var(--text); border-color: var(--border); }
+    .btn-danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+    .btn:hover { text-decoration: none; }
+    .inline { display: inline; margin: 0; }
+    .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
+    .toolbar form { display: flex; gap: 6px; flex-wrap: wrap; }
+    .muted { color: var(--muted); font-size: .9rem; }
+    .table-wrap { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 8px; border-bottom: 1px solid #eee; text-align: left; }
-    .msg { background: #eef7ff; padding: 10px; border-radius: 6px; margin-bottom: 12px; }
-    form { margin: 0; }
+    th, td { padding: 9px 8px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
+    th { font-weight: 600; color: var(--muted); font-size: .9rem; white-space: nowrap; }
+    td.actions { white-space: nowrap; font-size: .9rem; }
+    td.actions a, td.actions button { margin-right: 6px; }
+    .breadcrumb { margin-bottom: 12px; }
+    .usage { margin-top: 8px; }
+    .usage .bar { height: 8px; background: var(--bar); border-radius: 4px; overflow: hidden; }
+    .usage .fill { height: 100%; background: var(--accent); }
+    .usage .fill.full { background: var(--danger); }
+    form p { margin: 0 0 12px; }
+    form p label { display: block; margin-bottom: 4px; font-weight: 600; }
+    .helptext, .errorlist { font-size: .85rem; color: var(--muted); }
+    .errorlist { color: var(--danger); padding-left: 18px; }
+    code.link { word-break: break-all; }
   </style>
 </head>
 <body>
   <nav>
-    <strong>Cloud Drive</strong>
+    <a class="brand" href="{% url 'storage:browse' %}">☁️ Cloud Drive</a>
     {% if user.is_authenticated %}
-      <span>你好，{{ user.username }}</span>
-      <a href="{% url 'dashboard' %}">首頁</a>
-      <a href="{% url 'upload' %}">上傳</a>
-      <form method="post" action="{% url 'logout' %}" style="display:inline;">
+      <span class="muted">{{ user.username }}</span>
+      {% if user.is_staff %}<a href="{% url 'admin:index' %}">後台</a>{% endif %}
+      <form class="inline" method="post" action="{% url 'storage:logout' %}">
         {% csrf_token %}
-        <button type="submit">登出</button>
+        <button type="submit" class="btn">登出</button>
       </form>
     {% else %}
-      <a href="{% url 'login' %}">登入</a>
-      <a href="{% url 'register' %}">註冊</a>
+      <a href="{% url 'storage:login' %}">登入</a>
+      {% if allow_registration %}<a href="{% url 'storage:register' %}">註冊</a>{% endif %}
     {% endif %}
   </nav>
 
-  {% if messages %}
-    {% for message in messages %}
-      <div class="msg">{{ message }}</div>
-    {% endfor %}
-  {% endif %}
+  {% for message in messages %}
+    <div class="msg {{ message.tags }}">{{ message }}</div>
+  {% endfor %}
 
   {% block content %}{% endblock %}
 </body>

@@ -8,6 +8,7 @@
     {% csrf_token %}
     {{ form.as_p }}
     <button type="submit">上傳</button>
+    <a class="btn" href="{% url 'storage:browse' %}">取消</a>
   </form>
 </div>
 {% endblock %}
