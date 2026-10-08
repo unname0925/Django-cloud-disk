@@ -4,7 +4,8 @@
 
 ## 功能
 
-- **帳號**：註冊、登入、登出；可關閉公開註冊；同一 IP 連續登入失敗會暫時鎖定
+- **帳號**：註冊、登入、登出、變更密碼；可關閉公開註冊；同一 IP 連續登入失敗會暫時鎖定
+- **兩步驟驗證**：支援 Google Authenticator 等 TOTP App，掃描 QR code 即可啟用，附 10 組一次性備用碼；後台登入也必須經過同一套流程
 - **上傳**：拖曳到頁面任何地方即可上傳，有進度條；大檔案分段上傳，斷線自動重試，關掉頁面後重新上傳同一個檔案會從中斷處繼續
 - **檔案**：下載、重新命名、移動、刪除
 - **資料夾**：建立多層資料夾、麵包屑導覽、重新命名、刪除；整個資料夾或全部檔案打包成 zip 下載
@@ -12,7 +13,8 @@
 - **相簿模式**：圖片顯示縮圖，點開後可用左右鍵切換；檢視模式會記住
 - **搜尋與排序**：跨資料夾搜尋檔名，依名稱、大小、上傳時間排序
 - **線上預覽**：圖片、PDF、純文字、音訊、影片可直接在瀏覽器開啟
-- **分享連結**：產生免登入的下載連結，可設定 1/7/30 天或永不過期，可隨時撤銷，並記錄下載次數
+- **分享連結**：分享單一檔案或整個資料夾（可瀏覽子資料夾、下載 zip），免登入；可設定有效期限、密碼、下載次數上限，隨時撤銷；「我的分享」集中管理所有連結
+- **重複檔案**：用 SHA-256 判斷內容相同的檔案，同一位使用者的相同內容只存一份、只算一次容量；「重複檔案」頁面列出所有副本
 - **容量配額**：每位使用者有容量上限（可在後台個別調整），首頁顯示用量
 - **隔離**：每個帳號的檔案存放在獨立的 UUID 資料夾，無法存取其他使用者的檔案
 
@@ -21,15 +23,18 @@
 ```
 cloud/                     專案設定（settings、urls）
 storage/
-├─ models.py               UserProfile、Folder、StoredFile、ShareLink、UploadSession
+├─ models.py               UserProfile、Folder、StoredFile、ShareLink、UploadSession、RecoveryCode
 ├─ forms.py                表單
 ├─ signals.py              自動建立 profile；刪除紀錄時一併刪除實體檔案與縮圖
 ├─ services/
 │  ├─ trash.py             資源回收筒（丟棄、還原、永久刪除、過期清除）
 │  ├─ uploads.py           容量檢查、分段上傳
 │  ├─ archive.py           資料夾打包成 zip
+│  ├─ twofactor.py         兩步驟驗證（TOTP、備用碼）
+│  ├─ shares.py            分享連結（密碼、下載次數、資料夾分享）
+│  ├─ dedupe.py            重複檔案偵測與合併
 │  └─ thumbnails.py        縮圖產生與快取
-├─ views/                  依功能分檔：accounts、browse、files、folders、shares、trash、uploads
+├─ views/                  依功能分檔：accounts、browse、duplicates、files、folders、shares、trash、uploads
 ├─ static/storage/         uploader.js（拖曳與分段上傳）、gallery.js（相簿燈箱）
 ├─ templates/storage/
 ├─ management/commands/    cleanup_storage 清理指令
@@ -127,6 +132,8 @@ caddy run --config deploy\Caddyfile.local
 - gunicorn 有多個 worker 時請設定 `CACHE_DIR`（Docker 已預設），登入失敗次數才會在 worker 之間共用。
 - 分段上傳的暫存檔放在 `MEDIA_ROOT/tmp_uploads/`，逾時未完成的會由 `cleanup_storage` 清除。
 - 資源回收筒裡的檔案仍會佔用容量。
+- `cleanup_storage` 也會補算舊檔案的 SHA-256，並合併同一位使用者內容相同的檔案以釋出空間。
+- 使用者同時遺失手機和備用碼時，管理員可以在後台「User profiles」勾選該使用者，執行「重設兩步驟驗證」。
 - 下載 zip 時會先在伺服器的暫存目錄建立壓縮檔，請確保硬碟有足夠的剩餘空間（約為資料夾大小）。
 
 ## 環境變數

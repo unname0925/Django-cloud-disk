@@ -7,6 +7,7 @@
   <p class="muted">
     大小 {{ file.file_size|filesizeformat }}
     {% if link.expires_time %} · 連結有效至 {{ link.expires_time|date:"Y-m-d H:i" }}{% endif %}
+    {% if link.max_downloads %} · 已下載 {{ link.download_count }} / {{ link.max_downloads }} 次{% endif %}
   </p>
   <a class="btn btn-primary" href="{% url 'storage:shared_download' link.token %}">下載檔案</a>
 </div>

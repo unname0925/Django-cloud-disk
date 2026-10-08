@@ -1,7 +1,17 @@
+from django.conf import settings
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect
 
 from ..models import Folder, StoredFile
+
+
+def client_ip(request):
+    if settings.TRUST_PROXY_HEADERS:
+        # 反向代理會把真實 IP 附加在 X-Forwarded-For 最後面
+        forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
+        if forwarded:
+            return forwarded.split(",")[-1].strip()
+    return request.META.get("REMOTE_ADDR", "")
 
 
 def get_owned_folder(request, folder_id):

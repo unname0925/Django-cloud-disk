@@ -4,7 +4,7 @@
       <a class="thumb" href="{% url 'storage:browse_folder' sub.id %}" aria-label="{{ sub.name }}">📁</a>
       <div class="meta">
         <a class="name" href="{% url 'storage:browse_folder' sub.id %}" title="{{ sub.name }}">{{ sub.name }}</a>
-        <span class="actions"><a href="{% url 'storage:download_folder' sub.id %}">zip</a><a href="{% url 'storage:delete_folder' sub.id %}">刪除</a></span>
+        <span class="actions"><a href="{% url 'storage:download_folder' sub.id %}">zip</a><a href="{% url 'storage:manage_folder_shares' sub.id %}">分享</a><a href="{% url 'storage:delete_folder' sub.id %}">刪除</a></span>
       </div>
     </div>
   {% endfor %}

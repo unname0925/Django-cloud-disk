@@ -1,0 +1,14 @@
+{% extends "storage/base.html" %}
+{% block title %}備用碼{% endblock %}
+
+{% block content %}
+<div class="card narrow">
+  <h2>請保存你的備用碼</h2>
+  <p>手機遺失或無法使用驗證 App 時，可以用備用碼登入。每組只能使用一次。</p>
+  <p><strong>這些備用碼只會顯示這一次</strong>，請抄寫下來或存在密碼管理器裡。</p>
+  <ol class="codes">
+    {% for code in codes %}<li>{{ code }}</li>{% endfor %}
+  </ol>
+  <a class="btn btn-primary" href="{% url 'storage:security' %}">我已經保存好了</a>
+</div>
+{% endblock %}

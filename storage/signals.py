@@ -20,6 +20,7 @@ def delete_file_from_disk(sender, instance, **kwargs):
     用 signal 而不是覆寫 Model.delete()，是因為刪除資料夾或使用者時的連帶刪除
     （cascade）不會呼叫 Model.delete()，實體檔案會殘留在硬碟上。
     等交易確定提交後才刪檔，避免交易回滾時檔案已經不見。
+    內容相同的檔案會共用實體檔案，所以只有在沒有其他紀錄使用時才刪除。
     """
     name = instance.file.name
     if not name:
@@ -27,6 +28,8 @@ def delete_file_from_disk(sender, instance, **kwargs):
     storage = instance.file.storage
 
     def remove_files():
+        if StoredFile.objects.filter(file=name).exists():
+            return
         storage.delete(name)
         delete_thumbnail(storage, name)
 

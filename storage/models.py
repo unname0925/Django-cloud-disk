@@ -5,7 +5,8 @@ from pathlib import Path
 
 from django.conf import settings
 from django.db import models
-from django.db.models import Q, Sum
+from django.contrib.auth.hashers import check_password
+from django.db.models import Max, Q
 from django.utils import timezone
 from django.utils.text import get_valid_filename
 
@@ -66,6 +67,12 @@ class UserProfile(models.Model):
     )
     created_time = models.DateTimeField(auto_now_add=True)
 
+    # 兩步驟驗證（TOTP）
+    totp_secret = models.CharField(max_length=64, blank=True)
+    totp_enabled = models.BooleanField(default=False)
+    # 最後一次成功使用的時間區段，用來防止同一組驗證碼被重複使用
+    totp_last_step = models.BigIntegerField(default=0)
+
     def __str__(self):
         return f"{self.user.username} profile"
 
@@ -82,9 +89,13 @@ class UserProfile(models.Model):
 
     @property
     def used_bytes(self):
-        return StoredFile.objects.filter(owner=self.user).aggregate(
-            total=Sum("file_size")
-        )["total"] or 0
+        # 內容相同的檔案共用同一個實體檔案，容量只算一次
+        rows = (
+            StoredFile.objects.filter(owner=self.user)
+            .values("file")
+            .annotate(size=Max("file_size"))
+        )
+        return sum(row["size"] for row in rows)
 
     @property
     def remaining_bytes(self):
@@ -156,6 +167,8 @@ class StoredFile(models.Model):
     file_size = models.PositiveBigIntegerField(default=0)
     uploaded_time = models.DateTimeField(auto_now_add=True)
     deleted_time = models.DateTimeField(null=True, blank=True, db_index=True)
+    # 內容的 SHA-256，用來偵測重複檔案；舊檔案由 cleanup_storage 補算
+    sha256 = models.CharField(max_length=64, blank=True, db_index=True)
 
     objects = TrashableQuerySet.as_manager()
 
@@ -185,21 +198,79 @@ class StoredFile(models.Model):
 
 
 class ShareLink(models.Model):
-    file = models.ForeignKey(StoredFile, on_delete=models.CASCADE, related_name="share_links")
+    """分享單一檔案或整個資料夾的連結（file 與 folder 恰好其中一個有值）。"""
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="share_links"
+    )
+    file = models.ForeignKey(
+        StoredFile, null=True, blank=True, on_delete=models.CASCADE, related_name="share_links"
+    )
+    folder = models.ForeignKey(
+        Folder, null=True, blank=True, on_delete=models.CASCADE, related_name="share_links"
+    )
     token = models.CharField(max_length=64, unique=True, default=generate_share_token)
     created_time = models.DateTimeField(auto_now_add=True)
     expires_time = models.DateTimeField(null=True, blank=True)
+    password_hash = models.CharField(max_length=128, blank=True)
+    max_downloads = models.PositiveIntegerField(null=True, blank=True)
     download_count = models.PositiveIntegerField(default=0)
 
     class Meta:
         ordering = ["-created_time"]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    Q(file__isnull=False, folder__isnull=True)
+                    | Q(file__isnull=True, folder__isnull=False)
+                ),
+                name="share_link_has_one_target",
+            ),
+        ]
 
     def __str__(self):
-        return f"{self.file.original_name} ({self.token[:8]}…)"
+        return f"{self.target_name} ({self.token[:8]}…)"
+
+    @property
+    def target(self):
+        return self.file if self.file_id else self.folder
+
+    @property
+    def target_name(self):
+        return self.file.original_name if self.file_id else self.folder.name
 
     @property
     def is_expired(self):
         return self.expires_time is not None and self.expires_time <= timezone.now()
+
+    @property
+    def is_exhausted(self):
+        return self.max_downloads is not None and self.download_count >= self.max_downloads
+
+    @property
+    def target_in_trash(self):
+        return self.target.deleted_time is not None
+
+    @property
+    def is_active(self):
+        return not (self.is_expired or self.is_exhausted or self.target_in_trash)
+
+    @property
+    def has_password(self):
+        return bool(self.password_hash)
+
+    def check_password(self, raw_password):
+        return check_password(raw_password, self.password_hash)
+
+
+class RecoveryCode(models.Model):
+    """兩步驟驗證的備用碼，只儲存雜湊值，每組只能使用一次。"""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="recovery_codes"
+    )
+    code_hash = models.CharField(max_length=64)
+    used_time = models.DateTimeField(null=True, blank=True)
 
 
 class UploadSession(models.Model):

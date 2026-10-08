@@ -1,0 +1,13 @@
+{% extends "storage/base.html" %}
+{% block title %}我的分享{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>我的分享</h2>
+  {% if links %}
+    {% include "storage/includes/share_links_table.html" with show_target=True %}
+  {% else %}
+    <p class="muted">還沒有建立任何分享連結。在檔案或資料夾旁邊點「分享」即可建立。</p>
+  {% endif %}
+</div>
+{% endblock %}

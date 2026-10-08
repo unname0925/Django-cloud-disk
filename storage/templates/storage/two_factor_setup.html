@@ -1,0 +1,20 @@
+{% extends "storage/base.html" %}
+{% block title %}啟用兩步驟驗證{% endblock %}
+
+{% block content %}
+<div class="card narrow">
+  <h2>啟用兩步驟驗證</h2>
+  <ol>
+    <li>用驗證 App 掃描下面的 QR code。</li>
+    <li>無法掃描時，可以手動輸入金鑰：<br><code>{{ secret }}</code></li>
+    <li>輸入 App 顯示的 6 位數驗證碼完成設定。</li>
+  </ol>
+  <div class="qr">{{ qr_svg|safe }}</div>
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">確認並啟用</button>
+    <a class="btn" href="{% url 'storage:security' %}">取消</a>
+  </form>
+</div>
+{% endblock %}

@@ -1,45 +1,25 @@
 {% extends "storage/base.html" %}
-{% block title %}分享 {{ file.original_name }}{% endblock %}
+{% block title %}分享 {{ target_name }}{% endblock %}
 
 {% block content %}
 <div class="card">
-  <h2>分享「{{ file.original_name }}」</h2>
-  <p class="muted">任何拿到連結的人都不需登入就能下載這個檔案。</p>
-  <form method="post">
+  <h2>分享{% if is_folder %}資料夾{% endif %}「{{ target_name }}」</h2>
+  <p class="muted">
+    {% if is_folder %}拿到連結的人可以瀏覽這個資料夾（含子資料夾）並下載裡面的檔案，不需要登入。
+    {% else %}拿到連結的人不需要登入就能下載這個檔案。{% endif %}
+  </p>
+  <form method="post" class="narrow">
     {% csrf_token %}
     {{ form.as_p }}
     <button type="submit">建立分享連結</button>
-    {% include "storage/includes/cancel_link.html" with cancel_folder=file.folder %}
+    {% include "storage/includes/cancel_link.html" %}
   </form>
 </div>
 
 {% if links %}
 <div class="card">
   <h3>已建立的連結</h3>
-  <div class="table-wrap">
-  <table>
-    <thead><tr><th>連結</th><th>到期</th><th>下載次數</th><th></th></tr></thead>
-    <tbody>
-      {% for link, url in links %}
-        <tr>
-          <td><code class="link">{{ url }}</code></td>
-          <td>
-            {% if link.is_expired %}<span class="muted">已過期</span>
-            {% elif link.expires_time %}{{ link.expires_time|date:"Y-m-d H:i" }}
-            {% else %}永不過期{% endif %}
-          </td>
-          <td>{{ link.download_count }}</td>
-          <td class="actions">
-            <form class="inline" method="post" action="{% url 'storage:revoke_share' link.id %}">
-              {% csrf_token %}
-              <button type="submit" class="btn btn-danger">撤銷</button>
-            </form>
-          </td>
-        </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  </div>
+  {% include "storage/includes/share_links_table.html" with show_target=False %}
 </div>
 {% endif %}
 {% endblock %}

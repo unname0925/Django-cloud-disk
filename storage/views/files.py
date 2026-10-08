@@ -6,10 +6,10 @@ from django.shortcuts import redirect, render
 from django.views.decorators.cache import cache_control
 
 from ..forms import MoveFileForm, RenameFileForm, UploadForm
-from ..models import Folder, StoredFile
+from ..models import Folder
 from ..services import trash
 from ..services.thumbnails import get_thumbnail_path
-from ..services.uploads import clean_filename
+from ..services.uploads import store_uploaded_file
 from .common import file_response, get_owned_file, redirect_to_folder
 
 
@@ -20,15 +20,17 @@ def upload(request):
         if form.is_valid():
             folder = form.cleaned_data["folder"]
             files = form.cleaned_data["files"]
+            duplicates = []
             for uploaded in files:
-                StoredFile.objects.create(
-                    owner=request.user,
-                    folder=folder,
-                    file=uploaded,
-                    original_name=clean_filename(uploaded.name),
-                    file_size=uploaded.size,
-                )
+                stored, existing = store_uploaded_file(request.user, folder, uploaded)
+                if existing is not None:
+                    duplicates.append(stored.original_name)
             messages.success(request, f"已上傳 {len(files)} 個檔案")
+            if duplicates:
+                messages.info(
+                    request,
+                    f"{'、'.join(duplicates)} 與既有檔案內容相同，已共用儲存空間，不會重複佔用容量",
+                )
             return redirect_to_folder(folder)
     else:
         folder_param = request.GET.get("folder", "")

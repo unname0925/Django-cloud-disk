@@ -12,6 +12,7 @@
         <td class="muted">{{ sub.created_time|date:"Y-m-d H:i" }}</td>
         <td class="actions">
           <a href="{% url 'storage:download_folder' sub.id %}">下載 zip</a>
+          <a href="{% url 'storage:manage_folder_shares' sub.id %}">分享</a>
           <a href="{% url 'storage:rename_folder' sub.id %}">重新命名</a>
           <a href="{% url 'storage:delete_folder' sub.id %}">刪除</a>
         </td>

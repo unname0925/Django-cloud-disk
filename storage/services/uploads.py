@@ -7,6 +7,7 @@ from django.db import transaction
 from django.template.defaultfilters import filesizeformat
 
 from ..models import StoredFile, UploadSession, UserProfile, upload_to_user
+from .dedupe import find_duplicate, sha256_of_chunks, sha256_of_path
 
 INVALID_FILENAME_CHARS = '/\\:*?"<>|'
 
@@ -39,6 +40,25 @@ def check_upload_allowed(user, sizes):
         raise UploadError(
             f"容量不足：本次上傳 {filesizeformat(total)}，剩餘 {filesizeformat(remaining)}", 413
         )
+
+
+def store_uploaded_file(user, folder, uploaded):
+    """儲存一般表單上傳的檔案；內容和既有檔案相同時共用實體檔案。
+
+    回傳 (StoredFile, 重複的既有檔案或 None)。
+    """
+    digest = sha256_of_chunks(uploaded.chunks())
+    uploaded.seek(0)
+    existing = find_duplicate(user, digest, uploaded.size)
+    stored = StoredFile.objects.create(
+        owner=user,
+        folder=folder,
+        file=existing.file.name if existing else uploaded,
+        original_name=clean_filename(uploaded.name),
+        file_size=uploaded.size,
+        sha256=digest,
+    )
+    return stored, existing
 
 
 def start_session(user, filename, total_size, folder):
@@ -81,6 +101,7 @@ def append_chunk(session, offset, chunk):
 
 
 def finalize(session):
+    """組合完成的分段上傳，回傳 StoredFile（重複的既有檔案記在 stored.duplicate_of）。"""
     try:
         # 上傳期間可能已經用掉其他容量，完成前再檢查一次
         check_upload_allowed(session.owner, [(session.filename, session.total_size)])
@@ -92,25 +113,33 @@ def finalize(session):
     if folder is not None and folder.deleted_time is not None:
         folder = None
 
+    part = session.part_path
+    if not part.exists():
+        part.touch()  # 空檔案不會有任何分段
+    digest = sha256_of_path(part)
+
     stored = StoredFile(
         owner=session.owner,
         folder=folder,
         original_name=session.filename,
         file_size=session.total_size,
+        sha256=digest,
     )
-    storage = stored.file.storage
-    name = storage.get_available_name(upload_to_user(stored, session.filename))
-    destination = Path(storage.path(name))
-    destination.parent.mkdir(parents=True, exist_ok=True)
-
-    part = session.part_path
-    if not part.exists():
-        part.touch()  # 空檔案不會有任何分段
-    os.replace(part, destination)
+    existing = find_duplicate(session.owner, digest, session.total_size)
+    if existing is not None:
+        part.unlink()
+        name = existing.file.name
+    else:
+        storage = stored.file.storage
+        name = storage.get_available_name(upload_to_user(stored, session.filename))
+        destination = Path(storage.path(name))
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        os.replace(part, destination)
 
     stored.file.name = name
     stored.save()
     session.delete()
+    stored.duplicate_of = existing
     return stored
 
 

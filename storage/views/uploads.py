@@ -1,5 +1,6 @@
 """分段上傳的 JSON API，供拖曳上傳的前端程式使用。"""
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
@@ -23,6 +24,15 @@ def _session_json(session, stored=None):
     return data
 
 
+def _note_duplicate(request, stored):
+    # 訊息會在上傳完成、前端重新整理頁面後顯示
+    if stored is not None and getattr(stored, "duplicate_of", None) is not None:
+        messages.info(
+            request,
+            f"{stored.original_name} 與既有檔案內容相同，已共用儲存空間，不會重複佔用容量",
+        )
+
+
 def _form_error(form):
     message = "; ".join(e for errors in form.errors.values() for e in errors)
     return JsonResponse({"error": message}, status=400)
@@ -43,6 +53,7 @@ def start_upload(request):
         )
     except uploads.UploadError as error:
         return JsonResponse({"error": error.message}, status=error.status)
+    _note_duplicate(request, stored)
     return JsonResponse(_session_json(session, stored), status=201)
 
 
@@ -68,6 +79,7 @@ def upload_session(request, session_id):
         return JsonResponse({"error": error.message}, status=error.status)
     except UploadSession.DoesNotExist:
         return JsonResponse({"error": "上傳已取消"}, status=404)
+    _note_duplicate(request, stored)
     return JsonResponse(_session_json(session, stored))
 
 

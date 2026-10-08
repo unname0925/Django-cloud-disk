@@ -119,6 +119,32 @@ class MoveFileForm(FolderChoiceMixin, forms.Form):
         self.limit_folders("folder", user)
 
 
+class TwoFactorCodeForm(forms.Form):
+    code = forms.CharField(
+        max_length=20,
+        label="驗證碼",
+        help_text="驗證 App 上的 6 位數字，或一組備用碼",
+        widget=forms.TextInput(attrs={"autocomplete": "one-time-code", "autofocus": True,
+                                      "inputmode": "text"}),
+    )
+
+
+class DisableTwoFactorForm(forms.Form):
+    password = forms.CharField(label="目前的密碼", widget=forms.PasswordInput)
+    code = forms.CharField(max_length=20, label="驗證碼或備用碼",
+                           widget=forms.TextInput(attrs={"autocomplete": "one-time-code"}))
+
+    def __init__(self, *args, user, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = user
+
+    def clean_password(self):
+        password = self.cleaned_data["password"]
+        if not self.user.check_password(password):
+            raise forms.ValidationError("密碼不正確")
+        return password
+
+
 class ShareLinkForm(forms.Form):
     EXPIRY_CHOICES = [
         ("1", "1 天"),
@@ -128,6 +154,16 @@ class ShareLinkForm(forms.Form):
     ]
     expires_in_days = forms.ChoiceField(
         choices=EXPIRY_CHOICES, required=False, initial="7", label="有效期限"
+    )
+    password = forms.CharField(
+        required=False,
+        max_length=128,
+        label="密碼",
+        help_text="留空則不需要密碼",
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
+    )
+    max_downloads = forms.IntegerField(
+        required=False, min_value=1, label="下載次數上限", help_text="留空則不限制"
     )
 
     def expires_time(self):
@@ -150,3 +186,7 @@ class ChunkedUploadStartForm(forms.Form):
 class ChunkForm(forms.Form):
     offset = forms.IntegerField(min_value=0)
     chunk = forms.FileField(allow_empty_file=True)
+
+
+class SharePasswordForm(forms.Form):
+    password = forms.CharField(label="密碼", widget=forms.PasswordInput(attrs={"autofocus": True}))

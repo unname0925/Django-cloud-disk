@@ -57,6 +57,7 @@
   <div>
     已使用 {{ used_bytes|filesizeformat }} / {{ quota_bytes|filesizeformat }}（{{ usage_percent }}%）
     {% if trash_bytes %}<span class="muted">· 其中 {{ trash_bytes|filesizeformat }} 在<a href="{% url 'storage:trash' %}">資源回收筒</a></span>{% endif %}
+    · <a href="{% url 'storage:duplicates' %}">檢查重複檔案</a>
   </div>
   <div class="bar"><div class="fill{% if usage_percent >= 90 %} full{% endif %}" style="width: {{ usage_percent }}%"></div></div>
 </div>
