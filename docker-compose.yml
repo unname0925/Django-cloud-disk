@@ -1,0 +1,35 @@
+services:
+  web:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      ALLOWED_HOSTS: ${DOMAIN}
+      CSRF_TRUSTED_ORIGINS: https://${DOMAIN}
+      USE_HTTPS: "True"
+      TRUST_PROXY_HEADERS: "True"
+    volumes:
+      - data:/data
+    expose:
+      - "8000"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - web
+    environment:
+      DOMAIN: ${DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  data:
+  caddy_data:
+  caddy_config:

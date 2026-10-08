@@ -1,0 +1,25 @@
+{% comment %}
+拖曳上傳區。參數：folder（目前資料夾）、page_drop（整頁可拖放）、form（上傳頁的傳統表單）
+{% endcomment %}
+<div class="upload-zone" data-upload-zone
+     data-start-url="{% url 'storage:start_upload' %}"
+     data-session-url="{% url 'storage:upload_session' '00000000-0000-0000-0000-000000000000' %}"
+     {% if folder %}data-folder="{{ folder.id }}"{% endif %}
+     {% if page_drop %}data-upload-page{% endif %}
+     {% if form %}data-folder-select="#id_folder"
+     data-done-url="{% url 'storage:browse' %}"
+     data-done-folder-url="{% url 'storage:browse_folder' 0 %}"{% endif %}>
+  {% if form %}
+    <form method="post" enctype="multipart/form-data" data-upload-form>
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit">上傳</button>
+      <a class="btn" href="{% url 'storage:browse' %}">取消</a>
+    </form>
+    <p class="muted">也可以直接把檔案拖曳到這裡。大檔案會分段上傳，中斷後重新上傳同一個檔案會從中斷處繼續。</p>
+  {% else %}
+    <input type="file" multiple hidden data-upload-input>
+    <p>把檔案拖曳到頁面任何地方即可上傳，或 <button type="button" class="btn" data-upload-pick>選擇檔案</button></p>
+  {% endif %}
+  <ul class="upload-list" data-upload-list></ul>
+</div>

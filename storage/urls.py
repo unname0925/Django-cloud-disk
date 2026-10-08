@@ -1,12 +1,58 @@
 from django.urls import path
+
 from . import views
 
+app_name = "storage"
+
 urlpatterns = [
-    path("", views.dashboardF, name="dashboard"),
-    path("register/", views.registerF, name="register"),
-    path("login/", views.loginF, name="login"),
-    path("logout/", views.logoutF, name="logout"),
-    path("upload/", views.uploadF, name="upload"),
-    path("file/<int:file_id>/download/", views.downloadF, name="download"),
-    path("file/<int:file_id>/delete/", views.deleteF, name="delete"),
+    # 帳號
+    path("register/", views.register, name="register"),
+    path("login/", views.login_view, name="login"),
+    path("login/verify/", views.login_verify, name="login_verify"),
+    path("logout/", views.logout_view, name="logout"),
+    path("account/security/", views.security, name="security"),
+    path("account/2fa/setup/", views.two_factor_setup, name="two_factor_setup"),
+    path("account/2fa/disable/", views.two_factor_disable, name="two_factor_disable"),
+    path("account/2fa/recovery-codes/", views.recovery_codes_regenerate,
+         name="recovery_codes_regenerate"),
+    # 瀏覽
+    path("", views.browse, name="browse"),
+    path("folder/<int:folder_id>/", views.browse, name="browse_folder"),
+    # 資料夾
+    path("folder/new/", views.create_folder, name="create_folder"),
+    path("folder/<int:parent_id>/new/", views.create_folder, name="create_subfolder"),
+    path("folder/<int:folder_id>/rename/", views.rename_folder, name="rename_folder"),
+    path("folder/<int:folder_id>/delete/", views.delete_folder, name="delete_folder"),
+    path("folder/<int:folder_id>/zip/", views.download_folder, name="download_folder"),
+    path("folder/<int:folder_id>/share/", views.manage_shares, name="manage_folder_shares"),
+    path("zip/", views.download_folder, name="download_all"),
+    # 檔案
+    path("upload/", views.upload, name="upload"),
+    path("upload/sessions/", views.start_upload, name="start_upload"),
+    path("upload/sessions/<uuid:session_id>/", views.upload_session, name="upload_session"),
+    path("upload/sessions/<uuid:session_id>/cancel/", views.cancel_upload, name="cancel_upload"),
+    path("file/<int:file_id>/download/", views.download_file, name="download_file"),
+    path("file/<int:file_id>/preview/", views.preview_file, name="preview_file"),
+    path("file/<int:file_id>/thumbnail/", views.thumbnail, name="thumbnail"),
+    path("file/<int:file_id>/rename/", views.rename_file, name="rename_file"),
+    path("file/<int:file_id>/move/", views.move_file, name="move_file"),
+    path("file/<int:file_id>/delete/", views.delete_file, name="delete_file"),
+    # 資源回收筒
+    path("trash/", views.trash_list, name="trash"),
+    path("trash/empty/", views.empty_trash, name="empty_trash"),
+    path("trash/file/<int:file_id>/restore/", views.restore_file, name="restore_file"),
+    path("trash/file/<int:file_id>/purge/", views.purge_file, name="purge_file"),
+    path("trash/folder/<int:folder_id>/restore/", views.restore_folder, name="restore_folder"),
+    path("trash/folder/<int:folder_id>/purge/", views.purge_folder, name="purge_folder"),
+    # 重複檔案
+    path("duplicates/", views.duplicates, name="duplicates"),
+    # 分享
+    path("file/<int:file_id>/share/", views.manage_shares, name="manage_shares"),
+    path("shares/", views.my_shares, name="my_shares"),
+    path("share/<int:link_id>/revoke/", views.revoke_share, name="revoke_share"),
+    path("s/<str:token>/", views.shared_file, name="shared_file"),
+    path("s/<str:token>/download/", views.shared_download, name="shared_download"),
+    path("s/<str:token>/f/<int:folder_id>/", views.shared_subfolder, name="shared_subfolder"),
+    path("s/<str:token>/file/<int:file_id>/", views.shared_folder_file,
+         name="shared_folder_file"),
 ]

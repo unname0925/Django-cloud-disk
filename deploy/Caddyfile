@@ -1,0 +1,13 @@
+# Caddy 會自動向 Let's Encrypt 申請並更新 HTTPS 憑證。
+# 需求：DOMAIN 指向你的對外 IP，路由器把 80、443 埠轉發到這台主機。
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy web:8000
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "same-origin"
+		-Server
+	}
+}

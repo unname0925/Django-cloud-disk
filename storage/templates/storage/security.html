@@ -1,0 +1,40 @@
+{% extends "storage/base.html" %}
+{% block title %}帳號安全{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>兩步驟驗證
+    {% if two_factor_enabled %}<span class="badge ok">已啟用</span>{% else %}<span class="badge off">未啟用</span>{% endif %}
+  </h2>
+  {% if two_factor_enabled %}
+    <p>登入時除了密碼，還需要輸入驗證 App 上的驗證碼。</p>
+    <p class="muted">剩餘 {{ recovery_remaining }} 組備用碼。{% if recovery_remaining <= 3 %}<strong>備用碼快用完了，建議重新產生。</strong>{% endif %}</p>
+
+    <h3>重新產生備用碼</h3>
+    <form method="post" action="{% url 'storage:recovery_codes_regenerate' %}">
+      {% csrf_token %}
+      {{ regenerate_form.as_p }}
+      <button type="submit" class="btn">產生新的備用碼</button>
+    </form>
+
+    <h3>停用兩步驟驗證</h3>
+    <form method="post" action="{% url 'storage:two_factor_disable' %}">
+      {% csrf_token %}
+      {{ disable_form.as_p }}
+      <button type="submit" class="btn btn-danger">停用</button>
+    </form>
+  {% else %}
+    <p>啟用後，即使密碼外洩，別人沒有你的手機也無法登入。需要安裝 Google Authenticator、Microsoft Authenticator、1Password 等支援 TOTP 的 App。</p>
+    <a class="btn btn-primary" href="{% url 'storage:two_factor_setup' %}">啟用兩步驟驗證</a>
+  {% endif %}
+</div>
+
+<div class="card narrow">
+  <h2>變更密碼</h2>
+  <form method="post">
+    {% csrf_token %}
+    {{ password_form.as_p }}
+    <button type="submit">變更密碼</button>
+  </form>
+</div>
+{% endblock %}

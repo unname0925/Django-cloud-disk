@@ -1,0 +1,44 @@
+{% extends "storage/base.html" %}
+{% block title %}重複檔案{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>重複檔案</h2>
+  <p class="muted">
+    內容完全相同的檔案（依 SHA-256 判斷）只會存一份，也只計算一次容量。
+    如果不需要多個副本，可以刪除多餘的檔案讓列表更整齊。
+  </p>
+  {% if remaining %}
+    <p class="msg">還有 {{ remaining }} 個舊檔案尚未檢查，重新整理頁面會繼續檢查。</p>
+  {% endif %}
+
+  {% for group in groups %}
+    <h3>{{ group.files.0.original_name }}
+      <span class="muted">· {{ group.size|filesizeformat }} · {{ group.files|length }} 個副本</span>
+    </h3>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>檔名</th><th>位置</th><th>上傳時間</th><th></th></tr></thead>
+      <tbody>
+        {% for f in group.files %}
+          <tr>
+            <td>{{ f.original_name }}</td>
+            <td>
+              {% if f.folder %}<a href="{% url 'storage:browse_folder' f.folder.id %}">📁 {{ f.folder.name }}</a>
+              {% else %}<a href="{% url 'storage:browse' %}">根目錄</a>{% endif %}
+            </td>
+            <td>{{ f.uploaded_time|date:"Y-m-d H:i" }}</td>
+            <td class="actions">
+              <a href="{% url 'storage:download_file' f.id %}">下載</a>
+              <a href="{% url 'storage:delete_file' f.id %}">刪除</a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  {% empty %}
+    <p class="muted">沒有重複的檔案。</p>
+  {% endfor %}
+</div>
+{% endblock %}

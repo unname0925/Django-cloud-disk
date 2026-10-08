@@ -1,0 +1,25 @@
+{% extends "storage/base.html" %}
+{% block title %}分享 {{ target_name }}{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>分享{% if is_folder %}資料夾{% endif %}「{{ target_name }}」</h2>
+  <p class="muted">
+    {% if is_folder %}拿到連結的人可以瀏覽這個資料夾（含子資料夾）並下載裡面的檔案，不需要登入。
+    {% else %}拿到連結的人不需要登入就能下載這個檔案。{% endif %}
+  </p>
+  <form method="post" class="narrow">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">建立分享連結</button>
+    {% include "storage/includes/cancel_link.html" %}
+  </form>
+</div>
+
+{% if links %}
+<div class="card">
+  <h3>已建立的連結</h3>
+  {% include "storage/includes/share_links_table.html" with show_target=False %}
+</div>
+{% endif %}
+{% endblock %}

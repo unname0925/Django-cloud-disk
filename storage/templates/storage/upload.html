@@ -1,13 +1,12 @@
 {% extends "storage/base.html" %}
+{% load static %}
 {% block title %}上傳{% endblock %}
 
 {% block content %}
 <div class="card">
   <h2>上傳檔案</h2>
-  <form method="post" enctype="multipart/form-data">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">上傳</button>
-  </form>
+  {% include "storage/includes/upload_zone.html" with form=form folder=None %}
 </div>
 {% endblock %}
+
+{% block scripts %}<script src="{% static 'storage/uploader.js' %}"></script>{% endblock %}

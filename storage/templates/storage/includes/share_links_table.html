@@ -1,0 +1,38 @@
+{% comment %}分享連結列表。參數：links（(link, url) 列表）、show_target（是否顯示分享對象）{% endcomment %}
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr>
+      {% if show_target %}<th>分享內容</th>{% endif %}
+      <th>連結</th><th>狀態</th><th>到期</th><th>下載次數</th><th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for link, url in links %}
+      <tr>
+        {% if show_target %}
+          <td>
+            {% if link.file_id %}📄 {{ link.file.original_name }}{% else %}📁 {{ link.folder.name }}{% endif %}
+          </td>
+        {% endif %}
+        <td><code class="link">{{ url }}</code>{% if link.has_password %}<span class="badge">🔒 密碼</span>{% endif %}</td>
+        <td>
+          {% if link.target_in_trash %}<span class="badge off">在回收筒</span>
+          {% elif link.is_expired %}<span class="badge off">已過期</span>
+          {% elif link.is_exhausted %}<span class="badge off">已達上限</span>
+          {% else %}<span class="badge ok">有效</span>{% endif %}
+        </td>
+        <td>{% if link.expires_time %}{{ link.expires_time|date:"Y-m-d H:i" }}{% else %}永不過期{% endif %}</td>
+        <td>{{ link.download_count }}{% if link.max_downloads %} / {{ link.max_downloads }}{% endif %}</td>
+        <td class="actions">
+          <form class="inline" method="post" action="{% url 'storage:revoke_share' link.id %}">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <button type="submit" class="btn btn-danger">撤銷</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>

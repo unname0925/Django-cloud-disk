@@ -1,0 +1,15 @@
+{% extends "storage/base.html" %}
+{% block title %}兩步驟驗證{% endblock %}
+
+{% block content %}
+<div class="card narrow">
+  <h2>兩步驟驗證</h2>
+  <p class="muted">請輸入驗證 App 上顯示的 6 位數驗證碼。手機不在身邊時，可以改用一組備用碼。</p>
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">驗證</button>
+    <a class="btn" href="{% url 'storage:login' %}">取消</a>
+  </form>
+</div>
+{% endblock %}

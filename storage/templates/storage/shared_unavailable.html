@@ -1,0 +1,14 @@
+{% extends "storage/base.html" %}
+{% block title %}連結已失效{% endblock %}
+
+{% block content %}
+<div class="card narrow">
+  <h2>這個分享連結已失效</h2>
+  <p class="muted">
+    {% if link.is_exhausted %}已達到下載次數上限。
+    {% elif link.is_expired %}連結已過期。
+    {% else %}分享的內容已被移除。{% endif %}
+    如有需要，請向分享者索取新的連結。
+  </p>
+</div>
+{% endblock %}

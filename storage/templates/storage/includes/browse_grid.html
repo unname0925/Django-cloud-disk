@@ -1,0 +1,33 @@
+<div class="grid">
+  {% for sub in folders %}
+    <div class="tile">
+      <a class="thumb" href="{% url 'storage:browse_folder' sub.id %}" aria-label="{{ sub.name }}">📁</a>
+      <div class="meta">
+        <a class="name" href="{% url 'storage:browse_folder' sub.id %}" title="{{ sub.name }}">{{ sub.name }}</a>
+        <span class="actions"><a href="{% url 'storage:download_folder' sub.id %}">zip</a><a href="{% url 'storage:manage_folder_shares' sub.id %}">分享</a><a href="{% url 'storage:delete_folder' sub.id %}">刪除</a></span>
+      </div>
+    </div>
+  {% endfor %}
+  {% for f in files %}
+    <div class="tile">
+      {% if f.is_image %}
+        <a class="thumb" href="{% url 'storage:preview_file' f.id %}" data-lightbox data-title="{{ f.original_name }}">
+          <img src="{% url 'storage:thumbnail' f.id %}" alt="{{ f.original_name }}" loading="lazy">
+        </a>
+      {% elif f.is_previewable %}
+        <a class="thumb" href="{% url 'storage:preview_file' f.id %}" target="_blank" rel="noopener" aria-label="{{ f.original_name }}">📄</a>
+      {% else %}
+        <a class="thumb" href="{% url 'storage:download_file' f.id %}" aria-label="{{ f.original_name }}">📄</a>
+      {% endif %}
+      <div class="meta">
+        <span class="name" title="{{ f.original_name }}">{{ f.original_name }}</span>
+        <span class="muted">{{ f.file_size|filesizeformat }}</span>
+        <div class="actions">
+          <a href="{% url 'storage:download_file' f.id %}">下載</a>
+          <a href="{% url 'storage:manage_shares' f.id %}">分享</a>
+          <a href="{% url 'storage:delete_file' f.id %}">刪除</a>
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+</div>

@@ -1,0 +1,1 @@
+{% if cancel_folder %}<a class="btn" href="{% url 'storage:browse_folder' cancel_folder.id %}">取消</a>{% else %}<a class="btn" href="{% url 'storage:browse' %}">取消</a>{% endif %}
