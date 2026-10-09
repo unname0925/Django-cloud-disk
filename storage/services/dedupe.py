@@ -1,11 +1,10 @@
 """重複檔案：用 SHA-256 判斷內容相同的檔案，讓同一位使用者的相同內容只存一份。"""
 import hashlib
 
-from django.db import transaction
 from django.db.models import Count
 
 from ..models import StoredFile
-from .thumbnails import delete_thumbnail
+from ..signals import schedule_physical_cleanup
 
 HASH_BLOCK = 1024 * 1024
 
@@ -40,14 +39,7 @@ def _point_to(stored, existing):
     old_name = stored.file.name
     stored.file.name = existing.file.name
     stored.save(update_fields=["file", "sha256"])
-    storage = stored.file.storage
-
-    def remove_if_unused():
-        if old_name and not StoredFile.objects.filter(file=old_name).exists():
-            storage.delete(old_name)
-            delete_thumbnail(storage, old_name)
-
-    transaction.on_commit(remove_if_unused)
+    schedule_physical_cleanup(stored.file.storage, old_name)
 
 
 def backfill(owner=None, limit=None):

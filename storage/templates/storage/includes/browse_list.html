@@ -44,6 +44,7 @@
           <a href="{% url 'storage:manage_shares' f.id %}">分享</a>
           <a href="{% url 'storage:rename_file' f.id %}">重新命名</a>
           <a href="{% url 'storage:move_file' f.id %}">移動</a>
+          <a href="{% url 'storage:file_versions' f.id %}">版本{% if f.version_count %}（{{ f.version_count }}）{% endif %}</a>
           <a href="{% url 'storage:delete_file' f.id %}">刪除</a>
         </td>
       </tr>

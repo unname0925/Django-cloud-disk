@@ -6,7 +6,7 @@ from pathlib import Path
 from django.conf import settings
 from django.db import models
 from django.contrib.auth.hashers import check_password
-from django.db.models import Max, Q
+from django.db.models import Q
 from django.utils import timezone
 from django.utils.text import get_valid_filename
 
@@ -89,13 +89,13 @@ class UserProfile(models.Model):
 
     @property
     def used_bytes(self):
-        # 內容相同的檔案共用同一個實體檔案，容量只算一次
-        rows = (
-            StoredFile.objects.filter(owner=self.user)
-            .values("file")
-            .annotate(size=Max("file_size"))
+        # 內容相同的檔案（包含舊版本）共用同一個實體檔案，容量只算一次
+        sizes = dict(StoredFile.objects.filter(owner=self.user).values_list("file", "file_size"))
+        sizes.update(
+            FileVersion.objects.filter(stored_file__owner=self.user)
+            .values_list("file", "file_size")
         )
-        return sum(row["size"] for row in rows)
+        return sum(sizes.values())
 
     @property
     def remaining_bytes(self):
@@ -195,6 +195,33 @@ class StoredFile(models.Model):
     @property
     def thumbnail_name(self):
         return f"thumbs/{self.file.name}.jpg"
+
+
+class FileVersion(models.Model):
+    """檔案的舊版本。上傳同名檔案到同一個資料夾時，原本的內容會保存成一個版本。"""
+
+    stored_file = models.ForeignKey(StoredFile, on_delete=models.CASCADE, related_name="versions")
+    file = models.FileField()
+    file_size = models.PositiveBigIntegerField(default=0)
+    sha256 = models.CharField(max_length=64, blank=True)
+    # 這個版本原本上傳的時間
+    created_time = models.DateTimeField()
+    # 被新版本取代的時間
+    replaced_time = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_time"]
+
+    def __str__(self):
+        return f"{self.stored_file.original_name} @ {self.created_time:%Y-%m-%d %H:%M}"
+
+
+def physical_file_in_use(name):
+    """內容相同的檔案與舊版本可能共用實體檔案，只要還有任何紀錄使用就不能刪除。"""
+    return (
+        StoredFile.objects.filter(file=name).exists()
+        or FileVersion.objects.filter(file=name).exists()
+    )
 
 
 class ShareLink(models.Model):

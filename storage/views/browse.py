@@ -1,6 +1,6 @@
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
-from django.db.models import Sum
+from django.db.models import Count, Sum
 from django.shortcuts import render
 
 from ..models import Folder, StoredFile, UserProfile
@@ -55,7 +55,7 @@ def browse(request, folder_id=None):
         "folder": folder,
         "breadcrumbs": folder.ancestors() if folder else [],
         "folders": folders,
-        "files": files.order_by(SORT_FIELDS[sort]),
+        "files": files.annotate(version_count=Count("versions")).order_by(SORT_FIELDS[sort]),
         "query": query,
         "sort": sort,
         "used_bytes": used,

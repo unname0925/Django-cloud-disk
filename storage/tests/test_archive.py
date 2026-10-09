@@ -15,7 +15,10 @@ class ZipDownloadTests(StorageTestCase):
         self.sub = Folder.objects.create(owner=self.alice, parent=self.docs, name="sub")
         self.empty = Folder.objects.create(owner=self.alice, parent=self.docs, name="empty")
         self.upload(("a.txt", b"A"), folder=self.docs)
-        self.upload(("a.txt", b"A2"), folder=self.docs)
+        # 同一個資料夾上傳同名檔案會變成新版本；重新命名則可能出現同名檔案
+        self.upload(("other.txt", b"A2"), folder=self.docs)
+        other = self.docs.files.get(original_name="other.txt")
+        self.client.post(reverse("storage:rename_file", args=[other.pk]), {"name": "a.txt"})
         self.upload(("photo.jpg", b"JPG"), folder=self.sub)
         self.upload(("root.txt", b"R"))
 

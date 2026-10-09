@@ -20,17 +20,11 @@ def upload(request):
         if form.is_valid():
             folder = form.cleaned_data["folder"]
             files = form.cleaned_data["files"]
-            duplicates = []
-            for uploaded in files:
-                stored, existing = store_uploaded_file(request.user, folder, uploaded)
-                if existing is not None:
-                    duplicates.append(stored.original_name)
             messages.success(request, f"已上傳 {len(files)} 個檔案")
-            if duplicates:
-                messages.info(
-                    request,
-                    f"{'、'.join(duplicates)} 與既有檔案內容相同，已共用儲存空間，不會重複佔用容量",
-                )
+            for uploaded in files:
+                result = store_uploaded_file(request.user, folder, uploaded)
+                if result.message():
+                    messages.info(request, result.message())
             return redirect_to_folder(folder)
     else:
         folder_param = request.GET.get("folder", "")

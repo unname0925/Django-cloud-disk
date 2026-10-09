@@ -38,6 +38,11 @@ urlpatterns = [
     path("file/<int:file_id>/rename/", views.rename_file, name="rename_file"),
     path("file/<int:file_id>/move/", views.move_file, name="move_file"),
     path("file/<int:file_id>/delete/", views.delete_file, name="delete_file"),
+    path("file/<int:file_id>/versions/", views.file_versions, name="file_versions"),
+    path("version/<int:version_id>/download/", views.download_version,
+         name="download_version"),
+    path("version/<int:version_id>/restore/", views.restore_version, name="restore_version"),
+    path("version/<int:version_id>/delete/", views.delete_version, name="delete_version"),
     # 資源回收筒
     path("trash/", views.trash_list, name="trash"),
     path("trash/empty/", views.empty_trash, name="empty_trash"),

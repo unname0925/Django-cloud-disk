@@ -1,0 +1,45 @@
+{% extends "storage/base.html" %}
+{% block title %}版本 · {{ file.original_name }}{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>「{{ file.original_name }}」的版本</h2>
+  <p class="muted">
+    在同一個資料夾上傳同名檔案時，原本的內容會保存成舊版本。舊版本也會佔用容量
+    （內容相同的版本只算一次）。
+  </p>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>版本</th><th>上傳時間</th><th>大小</th><th></th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>目前版本</strong></td>
+        <td>{{ file.uploaded_time|date:"Y-m-d H:i" }}</td>
+        <td>{{ file.file_size|filesizeformat }}</td>
+        <td class="actions"><a href="{% url 'storage:download_file' file.id %}">下載</a></td>
+      </tr>
+      {% for version in versions %}
+        <tr>
+          <td>舊版本 {{ forloop.counter }}</td>
+          <td>{{ version.created_time|date:"Y-m-d H:i" }}</td>
+          <td>{{ version.file_size|filesizeformat }}</td>
+          <td class="actions">
+            <a href="{% url 'storage:download_version' version.id %}">下載</a>
+            <form class="inline" method="post" action="{% url 'storage:restore_version' version.id %}">
+              {% csrf_token %}<button type="submit" class="btn">還原成這個版本</button>
+            </form>
+            <form class="inline" method="post" action="{% url 'storage:delete_version' version.id %}"
+                  onsubmit="return confirm('刪除後無法復原，確定嗎？');">
+              {% csrf_token %}<button type="submit" class="btn btn-danger">刪除</button>
+            </form>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="4" class="muted">還沒有舊版本。</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% include "storage/includes/cancel_link.html" with cancel_folder=file.folder %}
+</div>
+{% endblock %}
