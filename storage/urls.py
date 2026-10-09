@@ -11,6 +11,7 @@ urlpatterns = [
     path("login/verify/", views.login_verify, name="login_verify"),
     path("logout/", views.logout_view, name="logout"),
     path("account/security/", views.security, name="security"),
+    path("account/activity/", views.activity_log, name="activity_log"),
     path("account/2fa/setup/", views.two_factor_setup, name="two_factor_setup"),
     path("account/2fa/disable/", views.two_factor_disable, name="two_factor_disable"),
     path("account/2fa/recovery-codes/", views.recovery_codes_regenerate,

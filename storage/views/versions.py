@@ -3,8 +3,8 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from ..models import FileVersion
-from ..services import versions
+from ..models import ActivityLog, FileVersion
+from ..services import activity, versions
 from .common import get_owned_file, serve_file
 
 
@@ -43,6 +43,7 @@ def restore_version(request, version_id):
     version = _owned_version(request, version_id)
     stored = version.stored_file
     versions.restore(version)
+    activity.record(request, ActivityLog.Action.VERSION_RESTORE, target=stored.original_name)
     messages.success(request, f"已還原「{stored.original_name}」的舊版本，原本的內容保存為一個版本")
     return redirect("storage:file_versions", file_id=stored.pk)
 

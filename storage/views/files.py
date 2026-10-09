@@ -6,7 +6,8 @@ from django.shortcuts import redirect, render
 from django.views.decorators.cache import cache_control
 
 from ..forms import MoveFileForm, RenameFileForm, UploadForm
-from ..models import Folder
+from ..models import ActivityLog, Folder
+from ..services import activity
 from ..services import trash
 from ..services.thumbnails import get_thumbnail_path
 from ..services.uploads import store_uploaded_file
@@ -23,6 +24,7 @@ def upload(request):
             messages.success(request, f"已上傳 {len(files)} 個檔案")
             for uploaded in files:
                 result = store_uploaded_file(request.user, folder, uploaded)
+                activity.log_upload(request, result)
                 if result.message():
                     messages.info(request, result.message())
             return redirect_to_folder(folder)
@@ -93,6 +95,7 @@ def move_file(request, file_id):
         if form.is_valid():
             stored.folder = form.cleaned_data["folder"]
             stored.save(update_fields=["folder"])
+            activity.record(request, ActivityLog.Action.MOVE, target=stored.original_name)
             messages.success(request, "檔案已移動")
             return redirect_to_folder(stored.folder)
     else:
@@ -111,6 +114,7 @@ def delete_file(request, file_id):
     stored = get_owned_file(request, file_id)
     if request.method == "POST":
         trash.trash_file(stored)
+        activity.record(request, ActivityLog.Action.TRASH, target=stored.original_name)
         messages.success(request, "檔案已移到資源回收筒")
         return redirect_to_folder(stored.folder)
 

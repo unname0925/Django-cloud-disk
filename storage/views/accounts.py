@@ -6,13 +6,16 @@ from django.contrib.auth import get_user_model, login, logout, update_session_au
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm
 from django.core.cache import cache
+from django.core.paginator import Paginator
 from django.http import Http404
 from django.shortcuts import redirect, render, resolve_url
+from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from ..forms import DisableTwoFactorForm, RegisterForm, TwoFactorCodeForm
-from ..services import twofactor
+from ..models import ActivityLog
+from ..services import activity, twofactor
 from .common import client_ip
 
 # 輸入密碼後，必須在這段時間內完成兩步驟驗證
@@ -55,8 +58,23 @@ def _safe_redirect(request, next_url):
 def _complete_login(request, user, backend, next_url):
     cache.delete(_failure_key(request))
     login(request, user, backend=backend)
+    log = activity.record(request, ActivityLog.Action.LOGIN, user=user)
+    previous, failures = activity.login_summary(user, log)
     messages.success(request, "登入成功")
+    if previous is not None:
+        when = timezone.localtime(previous.created_time).strftime("%Y-%m-%d %H:%M")
+        source = f"{previous.ip or '未知 IP'}（{previous.device or '未知裝置'}）"
+        messages.info(request, f"上次登入：{when}，來自 {source}")
+    if failures:
+        messages.warning(
+            request, f"自上次登入以來有 {failures} 次失敗的登入嘗試，若不是你本人，請考慮變更密碼"
+        )
     return _safe_redirect(request, next_url)
+
+
+def _log_login_failure(request, action, username):
+    user = get_user_model().objects.filter(username=username).first()
+    activity.record(request, action, user=user, username=username)
 
 
 def register(request):
@@ -99,6 +117,8 @@ def login_view(request):
                 "started": time.time(),
             }
             return redirect("storage:login_verify")
+        _log_login_failure(request, ActivityLog.Action.LOGIN_FAILED,
+                           request.POST.get("username", ""))
         locked = _record_failure(request) >= settings.LOGIN_MAX_ATTEMPTS
     else:
         form = AuthenticationForm(request)
@@ -129,6 +149,7 @@ def login_verify(request):
             request.session.pop(PENDING_LOGIN_KEY)
             return _complete_login(request, user, pending["backend"], pending["next"])
         form.add_error("code", "驗證碼不正確")
+        activity.record(request, ActivityLog.Action.TWO_FACTOR_FAILED, user=user)
         locked = _record_failure(request) >= settings.LOGIN_MAX_ATTEMPTS
 
     if locked:
@@ -143,6 +164,8 @@ def login_verify(request):
 
 @require_POST
 def logout_view(request):
+    if request.user.is_authenticated:
+        activity.record(request, ActivityLog.Action.LOGOUT)
     logout(request)
     return redirect(settings.LOGOUT_REDIRECT_URL)
 
@@ -155,6 +178,7 @@ def security(request):
     password_form = PasswordChangeForm(request.user, request.POST or None)
     if request.method == "POST" and password_form.is_valid():
         password_form.save()
+        activity.record(request, ActivityLog.Action.PASSWORD_CHANGE)
         # 變更密碼後讓目前的登入保持有效，其他裝置會被登出
         update_session_auth_hash(request, password_form.user)
         messages.success(request, "密碼已變更")
@@ -166,6 +190,7 @@ def security(request):
         "recovery_remaining": twofactor.remaining_recovery_codes(request.user),
         "disable_form": DisableTwoFactorForm(user=request.user),
         "regenerate_form": TwoFactorCodeForm(),
+        "recent_logins": activity.recent_logins(request.user),
     }
     return render(request, "storage/security.html", context)
 
@@ -185,6 +210,7 @@ def two_factor_setup(request):
         step = twofactor.match_step(secret, form.cleaned_data["code"])
         if step is not None:
             codes = twofactor.enable(request.user, secret, step)
+            activity.record(request, ActivityLog.Action.TWO_FACTOR_ENABLE)
             del request.session[SETUP_SECRET_KEY]
             messages.success(request, "已啟用兩步驟驗證")
             return render(request, "storage/recovery_codes.html", {"codes": codes})
@@ -208,6 +234,7 @@ def two_factor_disable(request):
     form = DisableTwoFactorForm(request.POST, user=request.user)
     if form.is_valid() and twofactor.verify(request.user, form.cleaned_data["code"]):
         twofactor.disable(request.user)
+        activity.record(request, ActivityLog.Action.TWO_FACTOR_DISABLE)
         messages.success(request, "已停用兩步驟驗證")
     else:
         _record_failure(request)
@@ -224,8 +251,16 @@ def recovery_codes_regenerate(request):
     form = TwoFactorCodeForm(request.POST)
     if form.is_valid() and twofactor.verify(request.user, form.cleaned_data["code"]):
         codes = twofactor.generate_recovery_codes(request.user)
+        activity.record(request, ActivityLog.Action.RECOVERY_CODES)
         messages.success(request, "已產生新的備用碼，舊的備用碼全部作廢")
         return render(request, "storage/recovery_codes.html", {"codes": codes})
     _record_failure(request)
     messages.error(request, "驗證碼不正確")
     return redirect("storage:security")
+
+
+@login_required
+def activity_log(request):
+    paginator = Paginator(ActivityLog.objects.filter(user=request.user), 50)
+    page = paginator.get_page(request.GET.get("page"))
+    return render(request, "storage/activity.html", {"page": page})

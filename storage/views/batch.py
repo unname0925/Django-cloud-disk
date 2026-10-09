@@ -5,8 +5,8 @@ from django.shortcuts import get_object_or_404, redirect
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
-from ..models import Folder
-from ..services import batch
+from ..models import ActivityLog, Folder
+from ..services import activity, batch
 from ..services.archive import build_selection_zip
 
 
@@ -19,6 +19,11 @@ def _back(request):
     if url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
         return redirect(next_url)
     return redirect("storage:browse")
+
+
+def _describe(folders, files):
+    names = [f"📁 {f.name}" for f in folders] + [f.original_name for f in files]
+    return "、".join(names)
 
 
 @login_required
@@ -41,6 +46,7 @@ def batch_action(request):
 
     if action == "trash":
         batch.trash_items(folders, files)
+        activity.record(request, ActivityLog.Action.TRASH, target=_describe(folders, files))
         messages.success(request, f"已將 {count} 個項目移到資源回收筒")
         return _back(request)
 
@@ -51,6 +57,7 @@ def batch_action(request):
             if target_id.isdigit() else None
         )
         errors = batch.move_items(folders, files, target)
+        activity.record(request, ActivityLog.Action.MOVE, target=_describe(folders, files))
         for error in errors:
             messages.error(request, error)
         moved = count - len(errors)

@@ -1,0 +1,24 @@
+{% comment %}活動紀錄表格。參數：logs{% endcomment %}
+{% if logs %}
+<div class="table-wrap">
+<table>
+  <thead><tr><th>時間</th><th>動作</th><th>對象</th><th>IP</th><th>裝置</th></tr></thead>
+  <tbody>
+    {% for log in logs %}
+      <tr>
+        <td>{{ log.created_time|date:"Y-m-d H:i" }}</td>
+        <td>
+          {{ log.get_action_display }}
+          {% if log.action == "login_failed" or log.action == "two_factor_failed" %}<span class="badge off">失敗</span>{% endif %}
+        </td>
+        <td>{{ log.target }}</td>
+        <td>{{ log.ip|default:"—" }}</td>
+        <td class="muted">{{ log.device|default:"—" }}</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+  <p class="muted">還沒有紀錄。</p>
+{% endif %}

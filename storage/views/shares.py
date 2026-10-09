@@ -7,8 +7,8 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from ..forms import SharePasswordForm, ShareLinkForm
-from ..models import Folder, ShareLink, StoredFile
-from ..services import shares
+from ..models import ActivityLog, Folder, ShareLink, StoredFile
+from ..services import activity, shares
 from ..services.archive import build_zip
 from .common import (
     client_ip,
@@ -41,13 +41,14 @@ def manage_shares(request, file_id=None, folder_id=None):
 
     form = ShareLinkForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
-        shares.create_link(
+        link = shares.create_link(
             request.user,
             expires_time=form.expires_time(),
             password=form.cleaned_data["password"],
             max_downloads=form.cleaned_data["max_downloads"],
             **target_kwargs,
         )
+        activity.record(request, ActivityLog.Action.SHARE_CREATE, target=link.target_name)
         messages.success(request, "已建立分享連結")
         return redirect(request.path)
 
@@ -72,6 +73,7 @@ def my_shares(request):
 @require_POST
 def revoke_share(request, link_id):
     link = get_object_or_404(ShareLink, pk=link_id, owner=request.user)
+    activity.record(request, ActivityLog.Action.SHARE_REVOKE, target=link.target_name)
     link.delete()
     messages.success(request, "分享連結已撤銷")
     next_url = request.POST.get("next", "")
@@ -163,6 +165,9 @@ def _count_download(request, link, item):
     if not shares.register_download(link):
         return False
     shares.grant_continuation(request, link, item)
+    # 記在分享者的紀錄裡，讓分享者知道連結被誰下載
+    activity.record(request, ActivityLog.Action.SHARE_DOWNLOAD, user=link.owner,
+                    target=link.target_name)
     return True
 
 

@@ -1,4 +1,5 @@
 from .accounts import (
+    activity_log,
     login_verify,
     login_view,
     logout_view,
@@ -42,6 +43,7 @@ from .uploads import cancel_upload, start_upload, upload_session
 from .versions import delete_version, download_version, file_versions, restore_version
 
 __all__ = [
+    "activity_log",
     "batch_action",
     "browse",
     "cancel_upload",
