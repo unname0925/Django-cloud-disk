@@ -62,6 +62,12 @@
     .qr svg { width: 200px; height: 200px; background: #fff; padding: 8px; border-radius: 8px; }
     .narrow { max-width: 460px; }
 
+    /* 批次操作 */
+    .batch-bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 8px 10px; margin-bottom: 8px;
+                 border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+    .batch-bar[hidden] { display: none; }
+    th.check, td.check { width: 28px; }
+
     /* 上傳區 */
     .upload-zone { border: 2px dashed var(--border); border-radius: 10px; padding: 14px; text-align: center; margin-bottom: 16px; }
     .upload-zone p { margin: 0; }

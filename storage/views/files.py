@@ -50,7 +50,7 @@ def upload(request):
 
 @login_required
 def download_file(request, file_id):
-    return file_response(get_owned_file(request, file_id), as_attachment=True)
+    return file_response(request, get_owned_file(request, file_id), as_attachment=True)
 
 
 @login_required
@@ -58,7 +58,7 @@ def preview_file(request, file_id):
     stored = get_owned_file(request, file_id)
     if not stored.is_previewable:
         return redirect("storage:download_file", file_id=stored.pk)
-    return file_response(stored, as_attachment=False)
+    return file_response(request, stored, as_attachment=False)
 
 
 @login_required

@@ -30,6 +30,22 @@ def register_download(link):
     return bool(links.update(download_count=F("download_count") + 1))
 
 
+def _continuation_key(link):
+    return f"share-continue:{link.pk}"
+
+
+def grant_continuation(request, link, item):
+    """記下這位訪客已經開始下載某個項目，之後的續傳與影片拖曳不再計算次數。"""
+    key = _continuation_key(link)
+    items = request.session.get(key, [])
+    if item not in items:
+        request.session[key] = items + [item]
+
+
+def has_continuation(request, link, item):
+    return item in request.session.get(_continuation_key(link), [])
+
+
 def _session_key(link):
     return f"share-unlocked:{link.pk}"
 

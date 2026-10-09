@@ -27,6 +27,7 @@ urlpatterns = [
     path("folder/<int:folder_id>/share/", views.manage_shares, name="manage_folder_shares"),
     path("zip/", views.download_folder, name="download_all"),
     # 檔案
+    path("batch/", views.batch_action, name="batch"),
     path("upload/", views.upload, name="upload"),
     path("upload/sessions/", views.start_upload, name="start_upload"),
     path("upload/sessions/<uuid:session_id>/", views.upload_session, name="upload_session"),

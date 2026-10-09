@@ -8,6 +8,7 @@ from .accounts import (
     two_factor_disable,
     two_factor_setup,
 )
+from .batch import batch_action
 from .browse import browse
 from .duplicates import duplicates
 from .files import (
@@ -40,6 +41,7 @@ from .trash import (
 from .uploads import cancel_upload, start_upload, upload_session
 
 __all__ = [
+    "batch_action",
     "browse",
     "cancel_upload",
     "create_folder",
