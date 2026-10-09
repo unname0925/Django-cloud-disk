@@ -7,3 +7,4 @@ private_storage/
 staticfiles/
 media/
 .env
+backups/

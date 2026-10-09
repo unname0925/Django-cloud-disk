@@ -6,7 +6,7 @@ from pathlib import Path
 from django.conf import settings
 from django.db import models
 from django.contrib.auth.hashers import check_password
-from django.db.models import Max, Q
+from django.db.models import Q
 from django.utils import timezone
 from django.utils.text import get_valid_filename
 
@@ -89,13 +89,13 @@ class UserProfile(models.Model):
 
     @property
     def used_bytes(self):
-        # 內容相同的檔案共用同一個實體檔案，容量只算一次
-        rows = (
-            StoredFile.objects.filter(owner=self.user)
-            .values("file")
-            .annotate(size=Max("file_size"))
+        # 內容相同的檔案（包含舊版本）共用同一個實體檔案，容量只算一次
+        sizes = dict(StoredFile.objects.filter(owner=self.user).values_list("file", "file_size"))
+        sizes.update(
+            FileVersion.objects.filter(stored_file__owner=self.user)
+            .values_list("file", "file_size")
         )
-        return sum(row["size"] for row in rows)
+        return sum(sizes.values())
 
     @property
     def remaining_bytes(self):
@@ -197,6 +197,33 @@ class StoredFile(models.Model):
         return f"thumbs/{self.file.name}.jpg"
 
 
+class FileVersion(models.Model):
+    """檔案的舊版本。上傳同名檔案到同一個資料夾時，原本的內容會保存成一個版本。"""
+
+    stored_file = models.ForeignKey(StoredFile, on_delete=models.CASCADE, related_name="versions")
+    file = models.FileField()
+    file_size = models.PositiveBigIntegerField(default=0)
+    sha256 = models.CharField(max_length=64, blank=True)
+    # 這個版本原本上傳的時間
+    created_time = models.DateTimeField()
+    # 被新版本取代的時間
+    replaced_time = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_time"]
+
+    def __str__(self):
+        return f"{self.stored_file.original_name} @ {self.created_time:%Y-%m-%d %H:%M}"
+
+
+def physical_file_in_use(name):
+    """內容相同的檔案與舊版本可能共用實體檔案，只要還有任何紀錄使用就不能刪除。"""
+    return (
+        StoredFile.objects.filter(file=name).exists()
+        or FileVersion.objects.filter(file=name).exists()
+    )
+
+
 class ShareLink(models.Model):
     """分享單一檔案或整個資料夾的連結（file 與 folder 恰好其中一個有值）。"""
 
@@ -295,3 +322,61 @@ class UploadSession(models.Model):
     @property
     def part_path(self):
         return upload_temp_dir() / f"{self.pk}.part"
+
+
+class ActivityLog(models.Model):
+    """使用者的登入與操作紀錄。"""
+
+    class Action(models.TextChoices):
+        LOGIN = "login", "登入"
+        LOGIN_FAILED = "login_failed", "登入失敗"
+        TWO_FACTOR_FAILED = "two_factor_failed", "驗證碼錯誤"
+        LOGOUT = "logout", "登出"
+        PASSWORD_CHANGE = "password_change", "變更密碼"
+        TWO_FACTOR_ENABLE = "two_factor_enable", "啟用兩步驟驗證"
+        TWO_FACTOR_DISABLE = "two_factor_disable", "停用兩步驟驗證"
+        RECOVERY_CODES = "recovery_codes", "重新產生備用碼"
+        UPLOAD = "upload", "上傳"
+        UPDATE = "update", "上傳新版本"
+        TRASH = "trash", "移到回收筒"
+        RESTORE = "restore", "從回收筒還原"
+        PURGE = "purge", "永久刪除"
+        MOVE = "move", "移動"
+        VERSION_RESTORE = "version_restore", "還原舊版本"
+        SHARE_CREATE = "share_create", "建立分享連結"
+        SHARE_REVOKE = "share_revoke", "撤銷分享連結"
+        SHARE_DOWNLOAD = "share_download", "分享連結被下載"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.CASCADE,
+        related_name="activity_logs",
+    )
+    # 登入失敗時使用者可能不存在，保留輸入的帳號
+    username = models.CharField(max_length=150, blank=True)
+    action = models.CharField(max_length=32, choices=Action.choices, db_index=True)
+    target = models.CharField(max_length=255, blank=True)
+    ip = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.CharField(max_length=255, blank=True)
+    created_time = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_time", "-pk"]
+
+    def __str__(self):
+        return f"{self.username} {self.get_action_display()} {self.target}"
+
+    @property
+    def device(self):
+        """從 User-Agent 粗略判斷瀏覽器與作業系統。"""
+        ua = self.user_agent
+        if not ua:
+            return ""
+        browser = next((name for key, name in (
+            ("Edg/", "Edge"), ("OPR/", "Opera"), ("Firefox/", "Firefox"),
+            ("Chrome/", "Chrome"), ("Safari/", "Safari"),
+        ) if key in ua), "其他瀏覽器")
+        system = next((name for key, name in (
+            ("iPhone", "iPhone"), ("iPad", "iPad"), ("Android", "Android"),
+            ("Windows", "Windows"), ("Mac OS X", "macOS"), ("Linux", "Linux"),
+        ) if key in ua), "")
+        return f"{browser}（{system}）" if system else browser

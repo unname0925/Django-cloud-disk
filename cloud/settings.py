@@ -60,8 +60,18 @@ STORAGE_CHUNK_SIZE = env_int("STORAGE_CHUNK_SIZE_MB", 5) * MB
 # 未完成的分段上傳保留多久（小時），超過後由 cleanup_storage 指令清除
 STORAGE_UPLOAD_SESSION_HOURS = env_int("STORAGE_UPLOAD_SESSION_HOURS", 24)
 
+# 每個檔案最多保留幾個舊版本（上傳同名檔案到同一個資料夾時產生）
+STORAGE_MAX_VERSIONS = env_int("STORAGE_MAX_VERSIONS", 10)
+
 # 縮圖最長邊（像素）
 STORAGE_THUMBNAIL_SIZE = 320
+
+# backup 指令的預設存放位置與保留份數
+BACKUP_DIR = Path(os.environ.get("BACKUP_DIR", BASE_DIR / "backups"))
+BACKUP_KEEP = env_int("BACKUP_KEEP", 7)
+
+# 活動紀錄保留天數，超過後由 cleanup_storage 刪除
+ACTIVITY_LOG_RETENTION_DAYS = env_int("ACTIVITY_LOG_RETENTION_DAYS", 180)
 
 # 同一個 IP 連續登入失敗幾次後鎖定，以及鎖定秒數
 LOGIN_MAX_ATTEMPTS = env_int("LOGIN_MAX_ATTEMPTS", 5)

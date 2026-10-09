@@ -1,9 +1,10 @@
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
-from django.db.models import Sum
+from django.db.models import Count, Sum
 from django.shortcuts import render
 
 from ..models import Folder, StoredFile, UserProfile
+from ..services import batch
 from .common import get_owned_folder
 
 SORT_FIELDS = {
@@ -54,7 +55,7 @@ def browse(request, folder_id=None):
         "folder": folder,
         "breadcrumbs": folder.ancestors() if folder else [],
         "folders": folders,
-        "files": files.order_by(SORT_FIELDS[sort]),
+        "files": files.annotate(version_count=Count("versions")).order_by(SORT_FIELDS[sort]),
         "query": query,
         "sort": sort,
         "used_bytes": used,
@@ -63,6 +64,7 @@ def browse(request, folder_id=None):
         "trash_bytes": StoredFile.objects.trashed().filter(owner=request.user)
         .aggregate(total=Sum("file_size"))["total"] or 0,
         "view_mode": view_mode,
+        "move_targets": batch.folder_choices(request.user) if view_mode == "list" else [],
         "chunk_size": settings.STORAGE_CHUNK_SIZE,
     }
     return render(request, "storage/browse.html", context)

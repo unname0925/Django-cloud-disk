@@ -11,6 +11,7 @@ urlpatterns = [
     path("login/verify/", views.login_verify, name="login_verify"),
     path("logout/", views.logout_view, name="logout"),
     path("account/security/", views.security, name="security"),
+    path("account/activity/", views.activity_log, name="activity_log"),
     path("account/2fa/setup/", views.two_factor_setup, name="two_factor_setup"),
     path("account/2fa/disable/", views.two_factor_disable, name="two_factor_disable"),
     path("account/2fa/recovery-codes/", views.recovery_codes_regenerate,
@@ -27,6 +28,7 @@ urlpatterns = [
     path("folder/<int:folder_id>/share/", views.manage_shares, name="manage_folder_shares"),
     path("zip/", views.download_folder, name="download_all"),
     # 檔案
+    path("batch/", views.batch_action, name="batch"),
     path("upload/", views.upload, name="upload"),
     path("upload/sessions/", views.start_upload, name="start_upload"),
     path("upload/sessions/<uuid:session_id>/", views.upload_session, name="upload_session"),
@@ -37,6 +39,11 @@ urlpatterns = [
     path("file/<int:file_id>/rename/", views.rename_file, name="rename_file"),
     path("file/<int:file_id>/move/", views.move_file, name="move_file"),
     path("file/<int:file_id>/delete/", views.delete_file, name="delete_file"),
+    path("file/<int:file_id>/versions/", views.file_versions, name="file_versions"),
+    path("version/<int:version_id>/download/", views.download_version,
+         name="download_version"),
+    path("version/<int:version_id>/restore/", views.restore_version, name="restore_version"),
+    path("version/<int:version_id>/delete/", views.delete_version, name="delete_version"),
     # 資源回收筒
     path("trash/", views.trash_list, name="trash"),
     path("trash/empty/", views.empty_trash, name="empty_trash"),

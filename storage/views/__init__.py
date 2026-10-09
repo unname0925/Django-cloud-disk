@@ -1,4 +1,5 @@
 from .accounts import (
+    activity_log,
     login_verify,
     login_view,
     logout_view,
@@ -8,6 +9,7 @@ from .accounts import (
     two_factor_disable,
     two_factor_setup,
 )
+from .batch import batch_action
 from .browse import browse
 from .duplicates import duplicates
 from .files import (
@@ -38,17 +40,23 @@ from .trash import (
     trash_list,
 )
 from .uploads import cancel_upload, start_upload, upload_session
+from .versions import delete_version, download_version, file_versions, restore_version
 
 __all__ = [
+    "activity_log",
+    "batch_action",
     "browse",
     "cancel_upload",
     "create_folder",
     "delete_file",
     "delete_folder",
+    "delete_version",
     "download_file",
     "download_folder",
+    "download_version",
     "duplicates",
     "empty_trash",
+    "file_versions",
     "login_verify",
     "login_view",
     "logout_view",
@@ -64,6 +72,7 @@ __all__ = [
     "rename_folder",
     "restore_file",
     "restore_folder",
+    "restore_version",
     "revoke_share",
     "security",
     "shared_download",

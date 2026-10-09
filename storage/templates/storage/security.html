@@ -29,6 +29,12 @@
   {% endif %}
 </div>
 
+<div class="card">
+  <h2>最近的登入</h2>
+  {% include "storage/includes/activity_table.html" with logs=recent_logins %}
+  <p><a href="{% url 'storage:activity_log' %}">查看完整的活動紀錄</a></p>
+</div>
+
 <div class="card narrow">
   <h2>變更密碼</h2>
   <form method="post">

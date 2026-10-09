@@ -1,11 +1,25 @@
+<form method="post" action="{% url 'storage:batch' %}" data-batch-form>
+{% csrf_token %}
+<input type="hidden" name="next" value="{{ request.get_full_path }}">
+<div class="batch-bar" data-batch-bar>
+  <span><span data-batch-count>0</span> 個項目已選取</span>
+  <select name="target" aria-label="移動到">
+    <option value="">根目錄</option>
+    {% for target_id, target_path in move_targets %}<option value="{{ target_id }}">{{ target_path }}</option>{% endfor %}
+  </select>
+  <button type="submit" name="action" value="move" class="btn">移動到選取的資料夾</button>
+  <button type="submit" name="action" value="zip" class="btn">下載 zip</button>
+  <button type="submit" name="action" value="trash" class="btn btn-danger" data-confirm="確定要把選取的項目移到資源回收筒嗎？">移到回收筒</button>
+</div>
 <div class="table-wrap">
 <table>
   <thead>
-    <tr><th>名稱</th>{% if query %}<th>位置</th>{% endif %}<th>大小</th><th>上傳時間</th><th>操作</th></tr>
+    <tr><th class="check"><input type="checkbox" data-batch-all aria-label="全選"></th><th>名稱</th>{% if query %}<th>位置</th>{% endif %}<th>大小</th><th>上傳時間</th><th>操作</th></tr>
   </thead>
   <tbody>
     {% for sub in folders %}
       <tr>
+        <td class="check"><input type="checkbox" name="folder" value="{{ sub.id }}" aria-label="選取 {{ sub.name }}"></td>
         <td>📁 <a href="{% url 'storage:browse_folder' sub.id %}">{{ sub.name }}</a></td>
         {% if query %}<td class="muted">{{ sub.parent.name|default:"根目錄" }}</td>{% endif %}
         <td class="muted">—</td>
@@ -20,6 +34,7 @@
     {% endfor %}
     {% for f in files %}
       <tr>
+        <td class="check"><input type="checkbox" name="file" value="{{ f.id }}" aria-label="選取 {{ f.original_name }}"></td>
         <td>📄 {% if f.is_previewable %}<a href="{% url 'storage:preview_file' f.id %}" target="_blank" rel="noopener">{{ f.original_name }}</a>{% else %}{{ f.original_name }}{% endif %}</td>
         {% if query %}<td class="muted">{{ f.folder.name|default:"根目錄" }}</td>{% endif %}
         <td>{{ f.file_size|filesizeformat }}</td>
@@ -29,6 +44,7 @@
           <a href="{% url 'storage:manage_shares' f.id %}">分享</a>
           <a href="{% url 'storage:rename_file' f.id %}">重新命名</a>
           <a href="{% url 'storage:move_file' f.id %}">移動</a>
+          <a href="{% url 'storage:file_versions' f.id %}">版本{% if f.version_count %}（{{ f.version_count }}）{% endif %}</a>
           <a href="{% url 'storage:delete_file' f.id %}">刪除</a>
         </td>
       </tr>
@@ -36,3 +52,4 @@
   </tbody>
 </table>
 </div>
+</form>

@@ -8,13 +8,13 @@
     :root {
       --bg: #f6f7f9; --card: #fff; --text: #1d2330; --muted: #6b7280;
       --border: #e3e6eb; --accent: #2563eb; --accent-text: #fff;
-      --danger: #dc2626; --ok-bg: #e8f5ec; --err-bg: #fdecec; --bar: #e5e7eb;
+      --danger: #dc2626; --ok-bg: #e8f5ec; --err-bg: #fdecec; --warn-bg: #fff4d6; --bar: #e5e7eb;
     }
     @media (prefers-color-scheme: dark) {
       :root {
         --bg: #12151b; --card: #1b1f27; --text: #e6e8ec; --muted: #9aa3b2;
         --border: #2c323d; --accent: #4f8cff; --accent-text: #fff;
-        --danger: #f87171; --ok-bg: #173226; --err-bg: #3a1c1c; --bar: #2c323d;
+        --danger: #f87171; --ok-bg: #173226; --err-bg: #3a1c1c; --warn-bg: #3a3017; --bar: #2c323d;
       }
     }
     * { box-sizing: border-box; }
@@ -27,6 +27,7 @@
     .card { background: var(--card); border: 1px solid var(--border); padding: 20px; border-radius: 10px; margin-bottom: 16px; }
     .msg { padding: 10px 14px; border-radius: 8px; margin-bottom: 12px; background: var(--ok-bg); }
     .msg.error { background: var(--err-bg); }
+    .msg.warning { background: var(--warn-bg); }
     input, select, button, .btn { font: inherit; padding: 7px 12px; border-radius: 6px; border: 1px solid var(--border);
                                   background: var(--card); color: var(--text); }
     button, .btn { cursor: pointer; display: inline-block; }
@@ -61,6 +62,12 @@
     .codes { font-family: ui-monospace, monospace; font-size: 1.1rem; columns: 2; padding-left: 20px; }
     .qr svg { width: 200px; height: 200px; background: #fff; padding: 8px; border-radius: 8px; }
     .narrow { max-width: 460px; }
+
+    /* 批次操作 */
+    .batch-bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 8px 10px; margin-bottom: 8px;
+                 border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+    .batch-bar[hidden] { display: none; }
+    th.check, td.check { width: 28px; }
 
     /* 上傳區 */
     .upload-zone { border: 2px dashed var(--border); border-radius: 10px; padding: 14px; text-align: center; margin-bottom: 16px; }

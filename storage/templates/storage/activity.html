@@ -1,0 +1,18 @@
+{% extends "storage/base.html" %}
+{% block title %}活動紀錄{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>活動紀錄</h2>
+  <p class="muted">最近的登入與檔案操作。分享連結被下載時也會記錄在這裡。</p>
+  {% include "storage/includes/activity_table.html" with logs=page.object_list %}
+  {% if page.has_other_pages %}
+    <div class="toolbar">
+      {% if page.has_previous %}<a class="btn" href="?page={{ page.previous_page_number }}">較新</a>{% endif %}
+      <span class="muted">第 {{ page.number }} / {{ page.paginator.num_pages }} 頁</span>
+      {% if page.has_next %}<a class="btn" href="?page={{ page.next_page_number }}">較舊</a>{% endif %}
+    </div>
+  {% endif %}
+  <a class="btn" href="{% url 'storage:security' %}">回到帳號安全</a>
+</div>
+{% endblock %}

@@ -1,7 +1,7 @@
 from django.contrib import admin, messages
 from django.template.defaultfilters import filesizeformat
 
-from .models import Folder, ShareLink, StoredFile, UserProfile
+from .models import ActivityLog, Folder, ShareLink, StoredFile, UserProfile
 from .services import twofactor
 
 
@@ -53,3 +53,18 @@ class ShareLinkAdmin(admin.ModelAdmin):
                     "max_downloads")
     readonly_fields = ("token", "download_count", "password_hash")
     list_select_related = ("owner", "file", "folder")
+
+
+@admin.register(ActivityLog)
+class ActivityLogAdmin(admin.ModelAdmin):
+    list_display = ("created_time", "username", "action", "target", "ip", "device")
+    list_filter = ("action", "created_time")
+    search_fields = ("username", "target", "ip")
+    date_hierarchy = "created_time"
+
+    # 紀錄只能查看，不能修改
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False

@@ -4,8 +4,8 @@ from django.http import FileResponse
 from django.shortcuts import render
 
 from ..forms import FolderForm
-from ..models import Folder, StoredFile
-from ..services import trash
+from ..models import ActivityLog, Folder, StoredFile
+from ..services import activity, trash
 from ..services.archive import build_zip
 from .common import get_owned_folder, redirect_to_folder
 
@@ -51,6 +51,7 @@ def delete_folder(request, folder_id):
     folder = get_owned_folder(request, folder_id)
     if request.method == "POST":
         trash.trash_folder(folder)
+        activity.record(request, ActivityLog.Action.TRASH, target=f"📁 {folder.name}")
         messages.success(request, "資料夾已移到資源回收筒")
         return redirect_to_folder(folder.parent)
 

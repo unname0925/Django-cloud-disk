@@ -5,7 +5,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from storage.models import UploadSession, upload_temp_dir
-from storage.services import dedupe, trash, uploads
+from storage.services import activity, dedupe, trash, uploads
 
 
 class Command(BaseCommand):
@@ -31,8 +31,9 @@ class Command(BaseCommand):
                     orphans += 1
 
         hashed, merged, _ = dedupe.backfill()
+        logs = activity.purge_old()
 
         self.stdout.write(
             f"回收筒永久刪除 {purged} 個檔案；清除 {len(stale)} 個逾時上傳、{orphans} 個孤立暫存檔；"
-            f"補算 {hashed} 個檔案的雜湊，合併 {merged} 個重複檔案"
+            f"補算 {hashed} 個檔案的雜湊，合併 {merged} 個重複檔案；刪除 {logs} 筆過期的活動紀錄"
         )

@@ -4,8 +4,8 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from ..models import Folder, StoredFile
-from ..services import trash
+from ..models import ActivityLog, Folder, StoredFile
+from ..services import activity, trash
 
 
 def _trashed_file(request, file_id):
@@ -34,6 +34,7 @@ def trash_list(request):
 def restore_file(request, file_id):
     stored = _trashed_file(request, file_id)
     trash.restore_file(stored)
+    activity.record(request, ActivityLog.Action.RESTORE, target=stored.original_name)
     messages.success(request, f"已還原「{stored.original_name}」")
     return redirect("storage:trash")
 
@@ -43,6 +44,7 @@ def restore_file(request, file_id):
 def restore_folder(request, folder_id):
     folder = _trashed_folder(request, folder_id)
     trash.restore_folder(folder)
+    activity.record(request, ActivityLog.Action.RESTORE, target=f"📁 {folder.name}")
     messages.success(request, f"已還原資料夾「{folder.name}」")
     return redirect("storage:trash")
 
@@ -52,6 +54,7 @@ def restore_folder(request, folder_id):
 def purge_file(request, file_id):
     stored = _trashed_file(request, file_id)
     stored.delete()
+    activity.record(request, ActivityLog.Action.PURGE, target=stored.original_name)
     messages.success(request, f"已永久刪除「{stored.original_name}」")
     return redirect("storage:trash")
 
@@ -61,6 +64,7 @@ def purge_file(request, file_id):
 def purge_folder(request, folder_id):
     folder = _trashed_folder(request, folder_id)
     folder.delete()
+    activity.record(request, ActivityLog.Action.PURGE, target=f"📁 {folder.name}")
     messages.success(request, f"已永久刪除資料夾「{folder.name}」")
     return redirect("storage:trash")
 
@@ -69,5 +73,6 @@ def purge_folder(request, folder_id):
 @require_POST
 def empty_trash(request):
     count = trash.empty_trash(request.user)
+    activity.record(request, ActivityLog.Action.PURGE, target=f"清空回收筒（{count} 個檔案）")
     messages.success(request, f"已清空資源回收筒（{count} 個檔案）")
     return redirect("storage:trash")

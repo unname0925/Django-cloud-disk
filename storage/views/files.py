@@ -6,7 +6,8 @@ from django.shortcuts import redirect, render
 from django.views.decorators.cache import cache_control
 
 from ..forms import MoveFileForm, RenameFileForm, UploadForm
-from ..models import Folder
+from ..models import ActivityLog, Folder
+from ..services import activity
 from ..services import trash
 from ..services.thumbnails import get_thumbnail_path
 from ..services.uploads import store_uploaded_file
@@ -20,17 +21,12 @@ def upload(request):
         if form.is_valid():
             folder = form.cleaned_data["folder"]
             files = form.cleaned_data["files"]
-            duplicates = []
-            for uploaded in files:
-                stored, existing = store_uploaded_file(request.user, folder, uploaded)
-                if existing is not None:
-                    duplicates.append(stored.original_name)
             messages.success(request, f"已上傳 {len(files)} 個檔案")
-            if duplicates:
-                messages.info(
-                    request,
-                    f"{'、'.join(duplicates)} 與既有檔案內容相同，已共用儲存空間，不會重複佔用容量",
-                )
+            for uploaded in files:
+                result = store_uploaded_file(request.user, folder, uploaded)
+                activity.log_upload(request, result)
+                if result.message():
+                    messages.info(request, result.message())
             return redirect_to_folder(folder)
     else:
         folder_param = request.GET.get("folder", "")
@@ -50,7 +46,7 @@ def upload(request):
 
 @login_required
 def download_file(request, file_id):
-    return file_response(get_owned_file(request, file_id), as_attachment=True)
+    return file_response(request, get_owned_file(request, file_id), as_attachment=True)
 
 
 @login_required
@@ -58,7 +54,7 @@ def preview_file(request, file_id):
     stored = get_owned_file(request, file_id)
     if not stored.is_previewable:
         return redirect("storage:download_file", file_id=stored.pk)
-    return file_response(stored, as_attachment=False)
+    return file_response(request, stored, as_attachment=False)
 
 
 @login_required
@@ -99,6 +95,7 @@ def move_file(request, file_id):
         if form.is_valid():
             stored.folder = form.cleaned_data["folder"]
             stored.save(update_fields=["folder"])
+            activity.record(request, ActivityLog.Action.MOVE, target=stored.original_name)
             messages.success(request, "檔案已移動")
             return redirect_to_folder(stored.folder)
     else:
@@ -117,6 +114,7 @@ def delete_file(request, file_id):
     stored = get_owned_file(request, file_id)
     if request.method == "POST":
         trash.trash_file(stored)
+        activity.record(request, ActivityLog.Action.TRASH, target=stored.original_name)
         messages.success(request, "檔案已移到資源回收筒")
         return redirect_to_folder(stored.folder)
 

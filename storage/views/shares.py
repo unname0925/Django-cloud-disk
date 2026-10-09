@@ -7,10 +7,16 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from ..forms import SharePasswordForm, ShareLinkForm
-from ..models import Folder, ShareLink, StoredFile
-from ..services import shares
+from ..models import ActivityLog, Folder, ShareLink, StoredFile
+from ..services import activity, shares
 from ..services.archive import build_zip
-from .common import client_ip, file_response, get_owned_file, get_owned_folder
+from .common import (
+    client_ip,
+    file_response,
+    get_owned_file,
+    get_owned_folder,
+    is_initial_request,
+)
 
 # --- 擁有者管理分享連結 -----------------------------------------------------
 
@@ -35,13 +41,14 @@ def manage_shares(request, file_id=None, folder_id=None):
 
     form = ShareLinkForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
-        shares.create_link(
+        link = shares.create_link(
             request.user,
             expires_time=form.expires_time(),
             password=form.cleaned_data["password"],
             max_downloads=form.cleaned_data["max_downloads"],
             **target_kwargs,
         )
+        activity.record(request, ActivityLog.Action.SHARE_CREATE, target=link.target_name)
         messages.success(request, "已建立分享連結")
         return redirect(request.path)
 
@@ -66,6 +73,7 @@ def my_shares(request):
 @require_POST
 def revoke_share(request, link_id):
     link = get_object_or_404(ShareLink, pk=link_id, owner=request.user)
+    activity.record(request, ActivityLog.Action.SHARE_REVOKE, target=link.target_name)
     link.delete()
     messages.success(request, "分享連結已撤銷")
     next_url = request.POST.get("next", "")
@@ -81,12 +89,21 @@ def _unavailable(request, link):
     return render(request, "storage/shared_unavailable.html", {"link": link}, status=410)
 
 
-def _load_link(request, token):
-    """回傳 (連結, 要直接回傳的 response)。連結失效或需要密碼時會回傳對應頁面。"""
+def _load_link(request, token, item=None):
+    """回傳 (連結, 要直接回傳的 response)。連結失效或需要密碼時會回傳對應頁面。
+
+    item 是要下載的項目；已達下載次數上限時，仍允許同一位訪客續傳先前開始下載的項目。
+    """
     link = get_object_or_404(
         ShareLink.objects.select_related("file", "folder", "owner"), token=token
     )
-    if not link.is_active:
+    continuing = (
+        item is not None
+        and not is_initial_request(request)
+        and shares.has_continuation(request, link, item)
+    )
+    only_exhausted = link.is_exhausted and not link.is_expired and not link.target_in_trash
+    if not link.is_active and not (continuing and only_exhausted):
         return link, _unavailable(request, link)
     if not shares.is_unlocked(request, link):
         return link, redirect("storage:shared_file", token=token)
@@ -137,27 +154,44 @@ def _render_shared_folder(request, link, folder):
     return render(request, "storage/shared_folder.html", context)
 
 
+def _count_download(request, link, item):
+    """需要計算一次下載時登記；回傳 False 表示已達上限。
+
+    從頭開始的請求算一次新的下載；續傳只有在同一位訪客先前開始過這個項目時才不計算，
+    否則可以用多個 Range 請求拼出完整檔案來繞過次數限制。
+    """
+    if not is_initial_request(request) and shares.has_continuation(request, link, item):
+        return True
+    if not shares.register_download(link):
+        return False
+    shares.grant_continuation(request, link, item)
+    # 記在分享者的紀錄裡，讓分享者知道連結被誰下載
+    activity.record(request, ActivityLog.Action.SHARE_DOWNLOAD, user=link.owner,
+                    target=link.target_name)
+    return True
+
+
 def shared_download(request, token):
     """下載分享的檔案；分享資料夾時下載整個資料夾的 zip。"""
-    link, response = _load_link(request, token)
+    link, response = _load_link(request, token, item="main")
     if response is not None:
         return response
-    if not shares.register_download(link):
+    if not _count_download(request, link, "main"):
         return _unavailable(request, link)
     if link.file_id:
-        return file_response(link.file, as_attachment=True)
+        return file_response(request, link.file, as_attachment=True)
     archive, filename = build_zip(link.owner, link.folder)
     return FileResponse(archive, as_attachment=True, filename=filename,
                         content_type="application/zip")
 
 
 def shared_folder_file(request, token, file_id):
-    link, response = _load_link(request, token)
+    link, response = _load_link(request, token, item=f"file:{file_id}")
     if response is not None:
         return response
     if not link.folder_id:
         return redirect("storage:shared_file", token=token)
     stored = shares.shared_folder_file(link, file_id)
-    if not shares.register_download(link):
+    if not _count_download(request, link, f"file:{file_id}"):
         return _unavailable(request, link)
-    return file_response(stored, as_attachment=True)
+    return file_response(request, stored, as_attachment=True)

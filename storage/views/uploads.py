@@ -8,29 +8,30 @@ from django.views.decorators.http import require_http_methods, require_POST
 
 from ..forms import ChunkedUploadStartForm, ChunkForm
 from ..models import UploadSession
-from ..services import uploads
+from ..services import activity, uploads
 
 
-def _session_json(session, stored=None):
+def _session_json(session, result=None):
     data = {
         "id": str(session.pk),
-        "received_bytes": session.total_size if stored else session.received_bytes,
+        "received_bytes": session.total_size if result else session.received_bytes,
         "total_size": session.total_size,
         "chunk_size": settings.STORAGE_CHUNK_SIZE,
-        "done": stored is not None,
+        "done": result is not None,
     }
-    if stored is not None:
-        data["file_id"] = stored.pk
+    if result is not None:
+        data["file_id"] = result.stored.pk
+        data["outcome"] = result.outcome
     return data
 
 
-def _note_duplicate(request, stored):
+def _note_result(request, result):
+    if result is None:
+        return
+    activity.log_upload(request, result)
     # 訊息會在上傳完成、前端重新整理頁面後顯示
-    if stored is not None and getattr(stored, "duplicate_of", None) is not None:
-        messages.info(
-            request,
-            f"{stored.original_name} 與既有檔案內容相同，已共用儲存空間，不會重複佔用容量",
-        )
+    if result.message():
+        messages.info(request, result.message())
 
 
 def _form_error(form):
@@ -45,7 +46,7 @@ def start_upload(request):
     if not form.is_valid():
         return _form_error(form)
     try:
-        session, stored = uploads.start_session(
+        session, result = uploads.start_session(
             request.user,
             form.cleaned_data["name"],
             form.cleaned_data["size"],
@@ -53,8 +54,8 @@ def start_upload(request):
         )
     except uploads.UploadError as error:
         return JsonResponse({"error": error.message}, status=error.status)
-    _note_duplicate(request, stored)
-    return JsonResponse(_session_json(session, stored), status=201)
+    _note_result(request, result)
+    return JsonResponse(_session_json(session, result), status=201)
 
 
 @login_required
@@ -68,7 +69,7 @@ def upload_session(request, session_id):
     if not form.is_valid():
         return _form_error(form)
     try:
-        session, stored = uploads.append_chunk(
+        session, result = uploads.append_chunk(
             session, form.cleaned_data["offset"], form.cleaned_data["chunk"]
         )
     except uploads.UploadError as error:
@@ -79,8 +80,8 @@ def upload_session(request, session_id):
         return JsonResponse({"error": error.message}, status=error.status)
     except UploadSession.DoesNotExist:
         return JsonResponse({"error": "上傳已取消"}, status=404)
-    _note_duplicate(request, stored)
-    return JsonResponse(_session_json(session, stored))
+    _note_result(request, result)
+    return JsonResponse(_session_json(session, result))
 
 
 @login_required
