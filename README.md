@@ -5,14 +5,16 @@
 ## 功能
 
 - **帳號**：註冊、登入、登出、變更密碼；可關閉公開註冊；同一 IP 連續登入失敗會暫時鎖定
+- **活動紀錄**：記錄登入（含 IP 與裝置）與檔案操作；登入時提醒上次登入的時間與之後失敗的登入嘗試次數
 - **兩步驟驗證**：支援 Google Authenticator 等 TOTP App，掃描 QR code 即可啟用，附 10 組一次性備用碼；後台登入也必須經過同一套流程
 - **上傳**：拖曳到頁面任何地方即可上傳，有進度條；大檔案分段上傳，斷線自動重試，關掉頁面後重新上傳同一個檔案會從中斷處繼續
-- **檔案**：下載、重新命名、移動、刪除
+- **檔案**：下載、重新命名、移動、刪除；列表模式可勾選多個項目一次移動、刪除或打包 zip
+- **版本歷史**：上傳同名檔案到同一個資料夾時保留舊版本，可下載或還原；每個檔案保留最近 10 個版本
 - **資料夾**：建立多層資料夾、麵包屑導覽、重新命名、刪除；整個資料夾或全部檔案打包成 zip 下載
 - **資源回收筒**：刪除的檔案與資料夾保留 30 天，可還原或永久刪除，期限到了自動清除
 - **相簿模式**：圖片顯示縮圖，點開後可用左右鍵切換；檢視模式會記住
 - **搜尋與排序**：跨資料夾搜尋檔名，依名稱、大小、上傳時間排序
-- **線上預覽**：圖片、PDF、純文字、音訊、影片可直接在瀏覽器開啟
+- **線上預覽**：圖片、PDF、純文字、音訊、影片可直接在瀏覽器開啟；支援 HTTP Range，影片可以拖曳進度條，下載中斷可以續傳
 - **分享連結**：分享單一檔案或整個資料夾（可瀏覽子資料夾、下載 zip），免登入；可設定有效期限、密碼、下載次數上限，隨時撤銷；「我的分享」集中管理所有連結
 - **重複檔案**：用 SHA-256 判斷內容相同的檔案，同一位使用者的相同內容只存一份、只算一次容量；「重複檔案」頁面列出所有副本
 - **容量配額**：每位使用者有容量上限（可在後台個別調整），首頁顯示用量
@@ -33,11 +35,15 @@ storage/
 │  ├─ twofactor.py         兩步驟驗證（TOTP、備用碼）
 │  ├─ shares.py            分享連結（密碼、下載次數、資料夾分享）
 │  ├─ dedupe.py            重複檔案偵測與合併
+│  ├─ versions.py          檔案版本歷史
+│  ├─ batch.py             批次操作
+│  ├─ activity.py          活動紀錄
+│  ├─ backup.py            備份與還原
 │  └─ thumbnails.py        縮圖產生與快取
 ├─ views/                  依功能分檔：accounts、browse、duplicates、files、folders、shares、trash、uploads
 ├─ static/storage/         uploader.js（拖曳與分段上傳）、gallery.js（相簿燈箱）
 ├─ templates/storage/
-├─ management/commands/    cleanup_storage 清理指令
+├─ management/commands/    cleanup_storage（清理）、backup（備份）、restore（還原）
 └─ tests/                  自動化測試
 deploy/                    Docker、gunicorn、Caddy、waitress 部署設定
 ```
@@ -136,6 +142,44 @@ caddy run --config deploy\Caddyfile.local
 - 使用者同時遺失手機和備用碼時，管理員可以在後台「User profiles」勾選該使用者，執行「重設兩步驟驗證」。
 - 下載 zip 時會先在伺服器的暫存目錄建立壓縮檔，請確保硬碟有足夠的剩餘空間（約為資料夾大小）。
 
+## 備份與還原
+
+```bash
+python manage.py backup                 # 備份到 BACKUP_DIR（預設 backups/），保留最新 7 份
+python manage.py backup --keep 30       # 保留最新 30 份
+python manage.py restore backups/cloud-disk-20261009-030000.tar.gz
+```
+
+- 備份檔包含資料庫快照與所有使用者檔案（縮圖和上傳中的暫存檔會略過，可以重新產生）。資料庫使用 SQLite 的 backup API，伺服器運作中也能安全備份。
+- **還原前請先停止伺服器**。原本的資料庫與檔案不會被刪除，而是改名為 `*.before-restore-時間`，確認沒問題後再自行刪除。還原後會自動執行 migration。
+- 備份和資料放在同一顆硬碟上，硬碟壞掉時會一起不見。請定期把備份檔複製到其他地方（外接硬碟、NAS、雲端空間）。
+
+Docker 部署會每天自動備份到 `backups` volume，取出備份：
+
+```bash
+docker compose exec web python manage.py backup        # 立即備份
+docker compose cp web:/backups ./backups               # 複製到主機
+```
+
+還原（Docker）：
+
+```bash
+docker compose cp ./cloud-disk-xxx.tar.gz web:/backups/
+docker compose stop caddy                              # 先停止對外服務
+docker compose exec web python manage.py restore /backups/cloud-disk-xxx.tar.gz --yes
+docker compose restart web caddy
+```
+
+Windows 可以用「工作排程器」每天執行 `python manage.py backup`。
+
+## 自動測試（CI）
+
+推送到 GitHub 或建立 Pull Request 時，GitHub Actions 會自動：
+
+- 執行 pyflakes 靜態檢查、確認 migration 齊全、跑完所有測試
+- 建立 Docker 映像檔、啟動容器確認服務正常、執行一次備份
+- 驗證 Caddy 設定檔
+
 ## 環境變數
 
 | 變數 | 預設值 | 說明 |
@@ -150,6 +194,11 @@ caddy run --config deploy\Caddyfile.local
 | `STORAGE_CHUNK_SIZE_MB` | `5` | 分段上傳每段大小（MB） |
 | `STORAGE_UPLOAD_SESSION_HOURS` | `24` | 未完成的分段上傳保留多久 |
 | `STORAGE_TRASH_RETENTION_DAYS` | `30` | 資源回收筒保留天數 |
+| `STORAGE_MAX_VERSIONS` | `10` | 每個檔案保留幾個舊版本 |
+| `ACTIVITY_LOG_RETENTION_DAYS` | `180` | 活動紀錄保留天數 |
+| `BACKUP_DIR` | `backups/` | backup 指令的預設存放位置（Docker 為 `/backups`） |
+| `BACKUP_KEEP` | `7` | 保留最新的幾份備份 |
+| `AUTO_BACKUP` | `True` | Docker 部署時是否每天自動備份 |
 | `LOGIN_MAX_ATTEMPTS` | `5` | 同一 IP 連續登入失敗幾次後鎖定 |
 | `LOGIN_LOCKOUT_SECONDS` | `900` | 鎖定秒數 |
 | `USE_HTTPS` | `False` | 有 HTTPS 時設為 `True`，Cookie 只走 HTTPS 並自動轉址 |

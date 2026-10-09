@@ -1,3 +1,5 @@
+from importlib import import_module
+
 from django.apps import AppConfig
 
 
@@ -6,4 +8,5 @@ class StorageConfig(AppConfig):
     name = "storage"
 
     def ready(self):
-        from . import signals  # noqa
+        # 註冊 signal receiver
+        import_module(f"{self.name}.signals")

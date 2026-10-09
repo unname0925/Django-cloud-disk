@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      DEBUG: "True"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: 安裝套件
+        run: pip install -r requirements.txt pyflakes
+      - name: 靜態檢查
+        run: pyflakes $(git ls-files '*.py' | grep -v /migrations/)
+      - name: 檢查 migration 是否齊全
+        run: python manage.py makemigrations --check --dry-run
+      - name: 執行測試
+        run: python manage.py test
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 建立映像檔
+        run: docker build -t cloud-disk .
+      - name: 啟動容器並確認服務正常
+        run: |
+          docker run -d --name web -p 8000:8000 \
+            -e DJANGO_SECRET_KEY=ci-secret -e SECRET_URL_PREFIX=ci -e ALLOWED_HOSTS=localhost \
+            cloud-disk
+          for i in $(seq 1 30); do
+            if curl -fsS -o /dev/null http://localhost:8000/ci/login/; then
+              echo "服務已啟動"
+              docker exec web python manage.py backup
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs web
+          exit 1
+      - name: 驗證 Caddyfile
+        run: |
+          for file in Caddyfile Caddyfile.local; do
+            docker run --rm -e DOMAIN=example.com -v "$PWD/deploy/$file:/etc/caddy/Caddyfile:ro" \
+              caddy:2 caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+          done

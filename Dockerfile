@@ -5,7 +5,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     DATABASE_PATH=/data/db.sqlite3 \
     MEDIA_ROOT=/data/files \
-    CACHE_DIR=/data/cache
+    CACHE_DIR=/data/cache \
+    BACKUP_DIR=/backups
 
 WORKDIR /app
 
@@ -15,12 +16,12 @@ RUN pip install -r requirements.txt gunicorn==26.2.0
 COPY . .
 RUN DEBUG=True python manage.py collectstatic --noinput \
     && useradd --create-home --uid 1000 app \
-    && mkdir -p /data \
-    && chown -R app:app /data \
+    && mkdir -p /data /backups \
+    && chown -R app:app /data /backups \
     && chmod +x deploy/entrypoint.sh
 
 USER app
-VOLUME ["/data"]
+VOLUME ["/data", "/backups"]
 EXPOSE 8000
 
 ENTRYPOINT ["deploy/entrypoint.sh"]

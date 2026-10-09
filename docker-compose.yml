@@ -10,6 +10,7 @@ services:
       TRUST_PROXY_HEADERS: "True"
     volumes:
       - data:/data
+      - backups:/backups
     expose:
       - "8000"
 
@@ -31,5 +32,6 @@ services:
 
 volumes:
   data:
+  backups:
   caddy_data:
   caddy_config:
