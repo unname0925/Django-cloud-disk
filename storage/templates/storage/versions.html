@@ -40,6 +40,6 @@
     </tbody>
   </table>
   </div>
-  {% include "storage/includes/cancel_link.html" with cancel_folder=file.folder %}
+  {% if file.folder %}<a class="btn" href="{% url 'storage:browse_folder' file.folder.id %}">返回</a>{% else %}<a class="btn" href="{% url 'storage:browse' %}">返回</a>{% endif %}
 </div>
 {% endblock %}

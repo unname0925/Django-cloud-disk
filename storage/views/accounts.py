@@ -63,7 +63,7 @@ def _complete_login(request, user, backend, next_url):
     messages.success(request, "登入成功")
     if previous is not None:
         when = timezone.localtime(previous.created_time).strftime("%Y-%m-%d %H:%M")
-        source = f"{previous.ip or '未知 IP'}（{previous.device or '未知裝置'}）"
+        source = " · ".join(filter(None, [previous.ip, previous.device])) or "未知來源"
         messages.info(request, f"上次登入：{when}，來自 {source}")
     if failures:
         messages.warning(
