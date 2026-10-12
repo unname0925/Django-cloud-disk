@@ -5,6 +5,8 @@ from . import views
 app_name = "storage"
 
 urlpatterns = [
+    # 健康檢查（不需登入）
+    path("healthz/", views.healthz, name="healthz"),
     # 帳號
     path("register/", views.register, name="register"),
     path("login/", views.login_view, name="login"),

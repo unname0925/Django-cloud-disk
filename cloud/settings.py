@@ -73,9 +73,24 @@ STORAGE_THUMBNAIL_SIZE = 320
 # 超過這個像素數的圖片不產生縮圖（約 1 億像素，例如 12000×8000）
 STORAGE_THUMBNAIL_MAX_PIXELS = env_int("STORAGE_THUMBNAIL_MAX_PIXELS", 100_000_000)
 
+# Docker 部署時每天自動備份；啟用時健康檢查也會確認最近的備份夠新
+AUTO_BACKUP = env_bool("AUTO_BACKUP", False)
+
+# 健康檢查：硬碟剩餘空間低於這個百分比、或最近的備份超過這個時數時發出警告
+HEALTH_MIN_FREE_PERCENT = env_int("HEALTH_MIN_FREE_PERCENT", 5)
+HEALTH_MAX_BACKUP_AGE_HOURS = env_int("HEALTH_MAX_BACKUP_AGE_HOURS", 36)
+
 # backup 指令的預設存放位置與保留份數
 BACKUP_DIR = Path(os.environ.get("BACKUP_DIR", BASE_DIR / "backups"))
 BACKUP_KEEP = env_int("BACKUP_KEEP", 7)
+
+# 異地備份：備份和資料在同一顆硬碟上，硬碟壞掉時會一起不見
+# BACKUP_COPY_DIR：另外複製到外接硬碟或 NAS 掛載的目錄
+# BACKUP_RCLONE_REMOTE：用 rclone 上傳到雲端，例如 gdrive:cloud-disk-backups
+BACKUP_COPY_DIR = os.environ.get("BACKUP_COPY_DIR", "")
+BACKUP_RCLONE_REMOTE = os.environ.get("BACKUP_RCLONE_REMOTE", "")
+BACKUP_OFFSITE_KEEP = env_int("BACKUP_OFFSITE_KEEP", 14)
+RCLONE_BINARY = os.environ.get("RCLONE_BINARY", "rclone")
 
 # 活動紀錄保留天數，超過後由 cleanup_storage 刪除
 ACTIVITY_LOG_RETENTION_DAYS = env_int("ACTIVITY_LOG_RETENTION_DAYS", 180)
@@ -207,3 +222,8 @@ CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS", "")
 TRUST_PROXY_HEADERS = env_bool("TRUST_PROXY_HEADERS", False)
 if TRUST_PROXY_HEADERS:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    # HSTS 由前面的 Caddy 加上，不需要 Django 再檢查
+    SILENCED_SYSTEM_CHECKS = ["security.W004"]
+
+# 健康檢查由容器內部以 HTTP 呼叫，不需要轉址到 HTTPS
+SECURE_REDIRECT_EXEMPT = [rf"^{SECRET_URL_PREFIX}/healthz/$"]

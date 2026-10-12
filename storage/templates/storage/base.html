@@ -129,6 +129,9 @@
     {% endif %}
   </nav>
 
+  {% for warning in config_warnings %}
+    <div class="msg warning">⚠️ 設定提醒（只有管理員看得到）：{{ warning }}</div>
+  {% endfor %}
   {% for message in messages %}
     <div class="msg {{ message.tags }}">{{ message }}</div>
   {% endfor %}

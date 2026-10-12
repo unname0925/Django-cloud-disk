@@ -4,10 +4,14 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 from pathlib import Path
+from unittest import skipUnless
 
 from django.conf import settings
 from django.test import SimpleTestCase
+
+RCLONE = shutil.which("rclone")
 
 
 class BackupRestoreTests(SimpleTestCase):
@@ -27,14 +31,17 @@ class BackupRestoreTests(SimpleTestCase):
         }
         self.manage("migrate", "-v0")
 
-    def manage(self, *args, stdin=None):
+    def manage(self, *args, stdin=None, expect_success=True, **env):
         result = subprocess.run(
             [sys.executable, "manage.py", *args],
-            cwd=settings.BASE_DIR, env=self.env, input=stdin,
+            cwd=settings.BASE_DIR, env={**self.env, **env}, input=stdin,
             capture_output=True, text=True,
         )
-        self.assertEqual(result.returncode, 0, result.stderr)
-        return result.stdout
+        if expect_success:
+            self.assertEqual(result.returncode, 0, result.stderr)
+            return result.stdout
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        return result
 
     def shell(self, code):
         return self.manage("shell", "-c", code).strip().splitlines()[-1]
@@ -53,7 +60,7 @@ class BackupRestoreTests(SimpleTestCase):
         (self.media / "tmp_uploads" / "skip.part").write_bytes(b"partial")
 
         output = self.manage("backup")
-        self.assertIn("已建立備份", output)
+        self.assertIn("已建立並驗證備份", output)
         archive = next(self.backups.glob("cloud-disk-*.tar.gz"))
         with tarfile.open(archive) as tar:
             names = tar.getnames()
@@ -107,5 +114,67 @@ class BackupRestoreTests(SimpleTestCase):
             cwd=settings.BASE_DIR, env=self.env, capture_output=True, text=True,
         )
         self.assertNotEqual(result.returncode, 0)
+        self.assertIn("無法讀取備份檔", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
+
+    def test_if_older_than_skips_recent_backup(self):
+        self.manage("backup")
+        output = self.manage("backup", "--if-older-than", "20")
+        self.assertIn("略過", output)
+        self.assertEqual(len(list(self.backups.glob("cloud-disk-*.tar.gz"))), 1)
+
+        archive = next(self.backups.glob("cloud-disk-*.tar.gz"))
+        old = time.time() - 21 * 3600
+        os.utime(archive, (old, old))
+        self.assertIn("已建立並驗證備份", self.manage("backup", "--if-older-than", "20"))
+
+    def test_copy_to_directory(self):
+        external = self.workdir / "external-disk"
+        external.mkdir()
+        for day in ("20260101", "20260102"):
+            (external / f"cloud-disk-{day}-000000.tar.gz").write_bytes(b"old")
+        output = self.manage("backup", "--copy-dir", str(external), "--offsite-keep", "2")
+        self.assertIn("已複製到", output)
+        copies = sorted(p.name for p in external.glob("cloud-disk-*.tar.gz"))
+        self.assertEqual(len(copies), 2)
+        self.assertNotIn("cloud-disk-20260101-000000.tar.gz", copies)
+        local = next(self.backups.glob("cloud-disk-*.tar.gz"))
+        self.assertEqual((external / local.name).read_bytes(), local.read_bytes())
+        self.assertTrue((self.backups / ".last-offsite").exists())
+
+    @skipUnless(RCLONE, "需要安裝 rclone")
+    def test_copy_with_rclone(self):
+        cloud = self.workdir / "cloud"
+        cloud.mkdir()
+        (cloud / "cloud-disk-20260101-000000.tar.gz").write_bytes(b"old")
+        (cloud / "unrelated.txt").write_text("keep me")
+        output = self.manage("backup", "--rclone-remote", f":local:{cloud}",
+                             "--offsite-keep", "1", RCLONE_BINARY=RCLONE)
+        self.assertIn("已上傳到", output)
+        names = sorted(p.name for p in cloud.iterdir())
+        local = next(self.backups.glob("cloud-disk-*.tar.gz"))
+        # 只保留最新一份備份，其他不是備份的檔案不會被動到
+        self.assertEqual(names, [local.name, "unrelated.txt"])
+
+    def test_offsite_failure_is_reported(self):
+        result = self.manage("backup", "--rclone-remote", "remote:somewhere",
+                             expect_success=False, RCLONE_BINARY="/nonexistent/rclone")
+        self.assertIn("找不到 rclone", result.stderr)
+        # 本機備份仍然完成，但不會記錄成異地備份成功
+        self.assertEqual(len(list(self.backups.glob("cloud-disk-*.tar.gz"))), 1)
+        self.assertFalse((self.backups / ".last-offsite").exists())
+
+    def test_verify_detects_corrupted_backup(self):
+        self.manage("backup")
+        archive = next(self.backups.glob("cloud-disk-*.tar.gz"))
+        data = archive.read_bytes()
+        archive.write_bytes(data[: len(data) // 2])
+        result = self.manage("shell", "-c",
+                             "from storage.services import backup\n"
+                             f"backup.verify_backup({str(archive)!r})",
+                             expect_success=False)
+        self.assertIn("BackupError", result.stderr)
+        # restore 指令也要顯示清楚的錯誤，而不是 traceback
+        result = self.manage("restore", str(archive), "--yes", expect_success=False)
         self.assertIn("無法讀取備份檔", result.stderr)
         self.assertNotIn("Traceback", result.stderr)

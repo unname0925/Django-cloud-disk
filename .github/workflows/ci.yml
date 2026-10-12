@@ -20,7 +20,9 @@ jobs:
           python-version: "3.12"
           cache: pip
       - name: 安裝套件
-        run: pip install -r requirements.txt pyflakes
+        run: |
+          pip install -r requirements.txt pyflakes
+          sudo apt-get update && sudo apt-get install -y rclone
       - name: 靜態檢查
         run: pyflakes $(git ls-files '*.py' | grep -v /migrations/)
       - name: 檢查 migration 是否齊全
@@ -43,10 +45,25 @@ jobs:
             if curl -fsS -o /dev/null http://localhost:8000/ci/login/; then
               echo "服務已啟動"
               docker exec web python manage.py backup
+              docker exec web rclone version
               exit 0
             fi
             sleep 2
           done
+          docker logs web
+          exit 1
+      - name: 確認 Docker 健康檢查回報 healthy
+        run: |
+          for i in $(seq 1 30); do
+            status=$(docker inspect --format '{{.State.Health.Status}}' web)
+            echo "健康狀態：$status"
+            if [ "$status" = "healthy" ]; then
+              docker exec web python deploy/healthcheck.py
+              exit 0
+            fi
+            sleep 3
+          done
+          docker inspect --format '{{json .State.Health}}' web
           docker logs web
           exit 1
       - name: 驗證 Caddyfile

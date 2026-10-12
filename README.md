@@ -142,6 +142,19 @@ caddy run --config deploy\Caddyfile.local
 - 使用者同時遺失手機和備用碼時，管理員可以在後台「User profiles」勾選該使用者，執行「重設兩步驟驗證」。
 - 下載 zip 時會先在伺服器的暫存目錄建立壓縮檔，請確保硬碟有足夠的剩餘空間（約為資料夾大小）。
 
+### 安全機制
+
+- **Content-Security-Policy**：只允許載入本站的腳本，即使有地方忘了跳脫使用者輸入，注入的腳本也不會執行；在瀏覽器中預覽的使用者檔案另外放進 sandbox。
+- **資源限制**：進行中的上傳會預留容量；過大的圖片不產生縮圖（防止解壓縮炸彈）；開放註冊時同一個 IP 每天最多註冊 3 個帳號。
+- **登入保護**：同一個 IP 連續登入失敗會鎖定，建議所有帳號啟用兩步驟驗證。
+- **套件更新**：Dependabot 每週檢查 Python 套件、GitHub Actions、Docker 映像檔的更新，有安全性更新時會自動開 Pull Request。
+
+### 健康檢查與設定檢查
+
+- `/<SECRET_URL_PREFIX>/healthz/` 回傳 JSON，檢查資料庫、檔案目錄能否寫入、硬碟剩餘空間、最近的備份與異地備份。有錯誤時回傳 503，只有警告時回傳 200。
+- Docker 每 30 秒呼叫一次健康檢查，`docker compose ps` 會顯示 `healthy` 或 `unhealthy`；Caddy 會等網站健康後才啟動。也可以用 [Uptime Kuma](https://github.com/louislam/uptime-kuma) 等工具監控這個網址，出問題時通知你。
+- 啟動時會執行 `python manage.py check --deploy`，列出設定上的問題，例如 `SECRET_URL_PREFIX` 還是預設值、正式環境開放註冊、沒有啟用 HTTPS。管理員登入網站時，頁面上方也會顯示這些提醒。
+
 ## 備份與還原
 
 ```bash
@@ -152,7 +165,34 @@ python manage.py restore backups/cloud-disk-20261009-030000.tar.gz
 
 - 備份檔包含資料庫快照與所有使用者檔案（縮圖和上傳中的暫存檔會略過，可以重新產生）。資料庫使用 SQLite 的 backup API，伺服器運作中也能安全備份。
 - **還原前請先停止伺服器**。原本的資料庫與檔案不會被刪除，而是改名為 `*.before-restore-時間`，確認沒問題後再自行刪除。還原後會自動執行 migration。
-- 備份和資料放在同一顆硬碟上，硬碟壞掉時會一起不見。請定期把備份檔複製到其他地方（外接硬碟、NAS、雲端空間）。
+- 每份備份建立後都會先驗證（可以完整讀取、資料庫通過 SQLite 完整性檢查），確認可以還原。
+- 備份和資料放在同一顆硬碟上，硬碟壞掉時會一起不見，**請設定下面的異地備份**。
+
+### 異地備份
+
+備份完成後可以自動複製到其他地方，兩種方式可以同時使用：
+
+```bash
+# 外接硬碟或 NAS 掛載的目錄
+python manage.py backup --copy-dir /mnt/usb-backup
+
+# 用 rclone 上傳到雲端（Google Drive、OneDrive、Dropbox、S3 等）
+python manage.py backup --rclone-remote gdrive:cloud-disk-backups
+```
+
+也可以用環境變數 `BACKUP_COPY_DIR`、`BACKUP_RCLONE_REMOTE` 設定，自動備份時就會一起執行。異地只保留最新的 `BACKUP_OFFSITE_KEEP` 份（預設 14），不會刪除目的地裡不是備份的檔案。異地備份失敗時指令會回傳錯誤，健康檢查也會在超過 36 小時沒有成功時發出警告。
+
+設定 rclone（以 Google Drive 為例，Docker 部署）：
+
+```bash
+mkdir rclone
+docker run --rm -it -v "$PWD/rclone:/config/rclone" rclone/rclone config   # 建立名為 gdrive 的遠端
+# 在 .env 加上 BACKUP_RCLONE_REMOTE=gdrive:cloud-disk-backups
+docker compose up -d
+docker compose exec web python manage.py backup                            # 測試一次
+```
+
+rclone 的設定檔包含雲端帳號的存取權杖，請妥善保管 `rclone/` 目錄（已加入 `.gitignore`）。
 
 Docker 部署會每天自動備份到 `backups` volume，取出備份：
 
@@ -177,7 +217,7 @@ Windows 可以用「工作排程器」每天執行 `python manage.py backup`。
 推送到 GitHub 或建立 Pull Request 時，GitHub Actions 會自動：
 
 - 執行 pyflakes 靜態檢查、確認 migration 齊全、跑完所有測試
-- 建立 Docker 映像檔、啟動容器確認服務正常、執行一次備份
+- 建立 Docker 映像檔、啟動容器確認服務正常、執行一次備份、確認 Docker 健康檢查回報 healthy
 - 驗證 Caddy 設定檔
 
 ## 環境變數
@@ -198,7 +238,14 @@ Windows 可以用「工作排程器」每天執行 `python manage.py backup`。
 | `ACTIVITY_LOG_RETENTION_DAYS` | `180` | 活動紀錄保留天數 |
 | `BACKUP_DIR` | `backups/` | backup 指令的預設存放位置（Docker 為 `/backups`） |
 | `BACKUP_KEEP` | `7` | 保留最新的幾份備份 |
-| `AUTO_BACKUP` | `True` | Docker 部署時是否每天自動備份 |
+| `AUTO_BACKUP` | `False`（Docker 為 `True`） | 是否每天自動備份；啟用時健康檢查會確認備份夠新 |
+| `BACKUP_COPY_DIR` | 空 | 異地備份：另外複製到這個目錄（外接硬碟、NAS） |
+| `BACKUP_RCLONE_REMOTE` | 空 | 異地備份：用 rclone 上傳到這個位置，例如 `gdrive:cloud-disk-backups` |
+| `BACKUP_OFFSITE_KEEP` | `14` | 異地保留最新的幾份 |
+| `HEALTH_MIN_FREE_PERCENT` | `5` | 硬碟剩餘空間低於這個百分比時，健康檢查發出警告 |
+| `HEALTH_MAX_BACKUP_AGE_HOURS` | `36` | 備份超過這麼多小時沒有更新時，健康檢查發出警告 |
+| `REGISTRATIONS_PER_IP_PER_DAY` | `3` | 開放註冊時，同一個 IP 每天最多註冊幾個帳號 |
+| `STORAGE_THUMBNAIL_MAX_PIXELS` | `100000000` | 超過這個像素數的圖片不產生縮圖 |
 | `LOGIN_MAX_ATTEMPTS` | `5` | 同一 IP 連續登入失敗幾次後鎖定 |
 | `LOGIN_LOCKOUT_SECONDS` | `900` | 鎖定秒數 |
 | `USE_HTTPS` | `False` | 有 HTTPS 時設為 `True`，Cookie 只走 HTTPS 並自動轉址 |

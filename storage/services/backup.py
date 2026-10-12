@@ -4,6 +4,7 @@ import json
 import os
 import shutil
 import sqlite3
+import subprocess
 import tarfile
 import tempfile
 from pathlib import Path
@@ -82,6 +83,12 @@ def create_backup(output_dir, include_files=True):
     return target
 
 
+def latest_backup(output_dir):
+    backups = sorted(Path(output_dir).glob(f"{PREFIX}*{SUFFIX}"),
+                     key=lambda path: path.stat().st_mtime)
+    return backups[-1] if backups else None
+
+
 def prune_backups(output_dir, keep):
     """只保留最新的 keep 份備份，回傳刪除的檔案。"""
     backups = sorted(Path(output_dir).glob(f"{PREFIX}*{SUFFIX}"))
@@ -99,7 +106,8 @@ def read_manifest(archive):
             names = set(tar.getnames())
     except KeyError:
         raise BackupError("這不是 Cloud Disk 的備份檔（找不到 manifest.json）")
-    except (tarfile.TarError, ValueError, OSError) as error:
+    except (tarfile.TarError, ValueError, OSError, EOFError) as error:
+        # EOFError：備份檔被截斷，例如複製到一半磁碟滿了
         raise BackupError(f"無法讀取備份檔：{error}")
     if not isinstance(manifest, dict):
         raise BackupError("備份檔的 manifest.json 格式不正確")
@@ -155,3 +163,88 @@ def restore_backup(archive):
                 for child in restored.iterdir():
                     shutil.move(child, media_root / child.name)
     return manifest, kept
+
+
+# --- 驗證與異地備份 ---------------------------------------------------------
+
+OFFSITE_MARKER = ".last-offsite"
+
+
+def verify_backup(archive):
+    """確認備份檔可以完整讀取，而且資料庫通過 SQLite 的完整性檢查。"""
+    read_manifest(archive)
+    with tempfile.TemporaryDirectory() as workdir:
+        try:
+            with tarfile.open(archive, "r:gz") as tar:
+                # 讀完每個成員，確認壓縮檔沒有截斷或損壞
+                for member in tar.getmembers():
+                    if member.isfile():
+                        source = tar.extractfile(member)
+                        while source.read(1024 * 1024):
+                            pass
+                tar.extract("db.sqlite3", workdir, filter="data")
+        except (tarfile.TarError, OSError, EOFError) as error:
+            raise BackupError(f"備份檔損壞：{error}")
+        connection = sqlite3.connect(Path(workdir) / "db.sqlite3")
+        try:
+            result = connection.execute("PRAGMA integrity_check").fetchone()[0]
+        except sqlite3.DatabaseError as error:
+            raise BackupError(f"備份中的資料庫損壞：{error}")
+        finally:
+            connection.close()
+        if result != "ok":
+            raise BackupError(f"備份中的資料庫沒有通過完整性檢查：{result}")
+
+
+def copy_to_directory(archive, directory, keep):
+    """複製到另一個位置（例如外接硬碟或 NAS），回傳刪除的舊備份。"""
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    partial = directory / (archive.name + ".partial")
+    shutil.copyfile(archive, partial)
+    os.replace(partial, directory / archive.name)
+    return [path.name for path in prune_backups(directory, keep)]
+
+
+def _rclone(*args):
+    try:
+        result = subprocess.run(
+            [settings.RCLONE_BINARY, *args], capture_output=True, text=True, timeout=6 * 3600
+        )
+    except FileNotFoundError:
+        raise BackupError("找不到 rclone，請先安裝：https://rclone.org/install/")
+    except subprocess.TimeoutExpired:
+        raise BackupError("rclone 執行逾時")
+    if result.returncode != 0:
+        raise BackupError(f"rclone 失敗：{result.stderr.strip()[-500:]}")
+    return result.stdout
+
+
+def copy_to_rclone(archive, remote, keep):
+    """用 rclone 上傳到雲端空間，並只保留最新的 keep 份，回傳刪除的舊備份。"""
+    remote = remote.rstrip("/")
+    _rclone("copyto", str(archive), f"{remote}/{archive.name}")
+    names = sorted(
+        name for name in _rclone("lsf", remote, "--files-only").splitlines()
+        if name.startswith(PREFIX) and name.endswith(SUFFIX)
+    )
+    removed = names[:-keep] if keep > 0 else []
+    for name in removed:
+        _rclone("deletefile", f"{remote}/{name}")
+    return removed
+
+
+def record_offsite_success(output_dir, destinations):
+    marker = Path(output_dir) / OFFSITE_MARKER
+    marker.write_text(json.dumps({
+        "time": timezone.now().isoformat(),
+        "destinations": destinations,
+    }, ensure_ascii=False))
+
+
+def last_offsite_success(output_dir):
+    marker = Path(output_dir) / OFFSITE_MARKER
+    try:
+        return marker.stat().st_mtime
+    except FileNotFoundError:
+        return None
