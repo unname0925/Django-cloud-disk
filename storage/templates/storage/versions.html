@@ -28,8 +28,7 @@
             <form class="inline" method="post" action="{% url 'storage:restore_version' version.id %}">
               {% csrf_token %}<button type="submit" class="btn">還原成這個版本</button>
             </form>
-            <form class="inline" method="post" action="{% url 'storage:delete_version' version.id %}"
-                  onsubmit="return confirm('刪除後無法復原，確定嗎？');">
+            <form class="inline" method="post" action="{% url 'storage:delete_version' version.id %}" data-confirm="刪除後無法復原，確定嗎？">
               {% csrf_token %}<button type="submit" class="btn btn-danger">刪除</button>
             </form>
           </td>

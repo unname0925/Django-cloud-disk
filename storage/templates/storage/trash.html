@@ -7,8 +7,7 @@
   <p class="muted">刪除的項目會保留 {{ retention_days }} 天，期間可以還原，之後自動永久刪除。回收筒裡的檔案仍會佔用容量。</p>
 
   {% if folders or files %}
-    <form method="post" action="{% url 'storage:empty_trash' %}" class="toolbar"
-          onsubmit="return confirm('確定要永久刪除回收筒裡的所有項目嗎？此動作無法復原。');">
+    <form method="post" action="{% url 'storage:empty_trash' %}" class="toolbar" data-confirm="確定要永久刪除回收筒裡的所有項目嗎？此動作無法復原。">
       {% csrf_token %}
       <button type="submit" class="btn btn-danger">清空資源回收筒</button>
     </form>
@@ -25,7 +24,7 @@
             <td class="muted">{{ expires|date:"Y-m-d" }}</td>
             <td class="actions">
               <form class="inline" method="post" action="{% url 'storage:restore_folder' folder.id %}">{% csrf_token %}<button type="submit" class="btn">還原</button></form>
-              <form class="inline" method="post" action="{% url 'storage:purge_folder' folder.id %}" onsubmit="return confirm('永久刪除後無法復原，確定嗎？');">{% csrf_token %}<button type="submit" class="btn btn-danger">永久刪除</button></form>
+              <form class="inline" method="post" action="{% url 'storage:purge_folder' folder.id %}" data-confirm="永久刪除後無法復原，確定嗎？">{% csrf_token %}<button type="submit" class="btn btn-danger">永久刪除</button></form>
             </td>
           </tr>
         {% endfor %}
@@ -37,7 +36,7 @@
             <td class="muted">{{ expires|date:"Y-m-d" }}</td>
             <td class="actions">
               <form class="inline" method="post" action="{% url 'storage:restore_file' f.id %}">{% csrf_token %}<button type="submit" class="btn">還原</button></form>
-              <form class="inline" method="post" action="{% url 'storage:purge_file' f.id %}" onsubmit="return confirm('永久刪除後無法復原，確定嗎？');">{% csrf_token %}<button type="submit" class="btn btn-danger">永久刪除</button></form>
+              <form class="inline" method="post" action="{% url 'storage:purge_file' f.id %}" data-confirm="永久刪除後無法復原，確定嗎？">{% csrf_token %}<button type="submit" class="btn btn-danger">永久刪除</button></form>
             </td>
           </tr>
         {% endfor %}

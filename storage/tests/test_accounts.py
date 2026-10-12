@@ -29,6 +29,22 @@ class RegisterTests(StorageTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(User.objects.filter(username="carol").exists())
 
+    @override_settings(REGISTRATIONS_PER_IP_PER_DAY=2)
+    def test_registration_rate_limited_per_ip(self):
+        cache.clear()
+        for name in ("carol", "dave"):
+            self.client.post(reverse("storage:register"), {
+                "username": name, "password1": "Very-l0ng-passw0rd",
+                "password2": "Very-l0ng-passw0rd",
+            })
+            self.client.logout()
+        response = self.client.post(reverse("storage:register"), {
+            "username": "erin", "password1": "Very-l0ng-passw0rd",
+            "password2": "Very-l0ng-passw0rd",
+        })
+        self.assertEqual(response.status_code, 429)
+        self.assertFalse(User.objects.filter(username="erin").exists())
+
     @override_settings(ALLOW_REGISTRATION=False)
     def test_registration_can_be_disabled(self):
         self.assertEqual(self.client.get(reverse("storage:register")).status_code, 404)

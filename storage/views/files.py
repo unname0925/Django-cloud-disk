@@ -3,6 +3,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import FileResponse, Http404
 from django.shortcuts import redirect, render
+from django.utils.csp import CSP
 from django.views.decorators.cache import cache_control
 
 from ..forms import MoveFileForm, RenameFileForm, UploadForm
@@ -49,12 +50,26 @@ def download_file(request, file_id):
     return file_response(request, get_owned_file(request, file_id), as_attachment=True)
 
 
+# 在瀏覽器中直接開啟的使用者檔案：禁止執行任何腳本，並放進 sandbox
+PREVIEW_CSP = {
+    "default-src": [CSP.NONE],
+    "img-src": [CSP.SELF],
+    "media-src": [CSP.SELF],
+    "style-src": [CSP.UNSAFE_INLINE],
+    "sandbox": True,
+}
+
+
 @login_required
 def preview_file(request, file_id):
     stored = get_owned_file(request, file_id)
     if not stored.is_previewable:
         return redirect("storage:download_file", file_id=stored.pk)
-    return file_response(request, stored, as_attachment=False)
+    response = file_response(request, stored, as_attachment=False)
+    # Chrome 的 PDF 閱讀器在 sandbox 中無法顯示，PDF 不加 CSP；
+    # 其他可預覽的類型（圖片、影音、純文字）一律套用嚴格的政策
+    response._csp_config = {} if stored.content_type == "application/pdf" else PREVIEW_CSP
+    return response
 
 
 @login_required

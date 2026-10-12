@@ -20,6 +20,13 @@ def get_thumbnail_path(stored_file):
     size = settings.STORAGE_THUMBNAIL_SIZE
     try:
         with stored_file.file.open("rb") as fh, Image.open(fh) as image:
+            # Image.open 只讀取檔頭，在真正解碼前先檢查尺寸，避免「解壓縮炸彈」
+            # 用一個小檔案耗盡伺服器記憶體
+            width, height = image.size
+            if width * height > settings.STORAGE_THUMBNAIL_MAX_PIXELS:
+                return None
+            # JPEG 可以在解碼時直接縮小，大幅減少記憶體用量
+            image.draft("RGB", (size * 2, size * 2))
             image = ImageOps.exif_transpose(image)
             image.thumbnail((size, size))
             if image.mode in ("RGBA", "LA", "P"):

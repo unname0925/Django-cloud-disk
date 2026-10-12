@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Cloud Drive{% endblock %} · Cloud Drive</title>
-  <style>
+  <style nonce="{{ csp_nonce }}">
     :root {
       --bg: #f6f7f9; --card: #fff; --text: #1d2330; --muted: #6b7280;
       --border: #e3e6eb; --accent: #2563eb; --accent-text: #fff;
@@ -47,9 +47,13 @@
     td.actions a, td.actions button { margin-right: 6px; }
     .breadcrumb { margin-bottom: 12px; }
     .usage { margin-top: 8px; }
-    .usage .bar { height: 8px; background: var(--bar); border-radius: 4px; overflow: hidden; }
-    .usage .fill { height: 100%; background: var(--accent); }
-    .usage .fill.full { background: var(--danger); }
+    .usage progress { width: 100%; height: 8px; appearance: none; border: 0; border-radius: 4px;
+                      background: var(--bar); overflow: hidden; }
+    .usage progress::-webkit-progress-bar { background: var(--bar); }
+    .usage progress::-webkit-progress-value { background: var(--accent); }
+    .usage progress::-moz-progress-bar { background: var(--accent); }
+    .usage progress.full::-webkit-progress-value { background: var(--danger); }
+    .usage progress.full::-moz-progress-bar { background: var(--danger); }
     form p { margin: 0 0 12px; }
     form p label { display: block; margin-bottom: 4px; font-weight: 600; }
     .helptext, .errorlist { font-size: .85rem; color: var(--muted); }
@@ -130,6 +134,7 @@
   {% endfor %}
 
   {% block content %}{% endblock %}
+  <script src="{% static 'storage/confirm.js' %}"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>
