@@ -26,12 +26,5 @@
   });
   boxes.forEach(function (box) { box.addEventListener("change", update); });
 
-  form.addEventListener("submit", function (event) {
-    var button = event.submitter;
-    if (button && button.dataset.confirm && !window.confirm(button.dataset.confirm)) {
-      event.preventDefault();
-    }
-  });
-
   update();
 })();

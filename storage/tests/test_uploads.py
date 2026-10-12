@@ -118,14 +118,37 @@ class ChunkedUploadTests(StorageTestCase):
 
         self.assertEqual(self.start(size=26).status_code, 413)
 
-        # 兩個上傳同時開始，各自都在容量內，但第二個完成時已經超過
-        first = self.start().json()["id"]
-        second = self.start().json()["id"]
-        self.upload_all(first)
-        response = self.upload_all(second)
+        # 上傳途中管理員調降了容量，完成時會再檢查一次
+        session_id = self.start().json()["id"]
+        profile.quota_bytes = 10
+        profile.save()
+        response = self.upload_all(session_id)
         self.assertEqual(response.status_code, 413)
-        self.assertEqual(StoredFile.objects.count(), 1)
+        self.assertFalse(StoredFile.objects.exists())
         self.assertFalse(UploadSession.objects.exists())
+
+    def test_pending_uploads_reserve_quota(self):
+        # 進行中的上傳會預留容量，不能同時開很多個不完成的上傳塞滿硬碟
+        profile = UserProfile.for_user(self.alice)
+        profile.quota_bytes = 25
+        profile.save()
+
+        first = self.start().json()["id"]
+        self.assertEqual(self.start().status_code, 413)
+        response = self.client.post(reverse("storage:upload"),
+                                    {"files": [SimpleUploadedFile("x.bin", b"x" * 10)]})
+        self.assertContains(response, "容量不足")
+
+        # 取消後預留的容量就會釋出
+        self.client.post(reverse("storage:cancel_upload", args=[first]))
+        self.assertEqual(self.start().status_code, 201)
+
+    def test_finishing_does_not_count_own_reservation(self):
+        profile = UserProfile.for_user(self.alice)
+        profile.quota_bytes = 20
+        profile.save()
+        session_id = self.start().json()["id"]
+        self.assertTrue(self.upload_all(session_id).json()["done"])
 
     def test_filename_is_sanitized(self):
         data = self.start(name="../../etc/pass:wd", size=0).json()

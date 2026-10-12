@@ -21,6 +21,7 @@ from .files import (
     thumbnail,
     upload,
 )
+from .health import healthz
 from .folders import create_folder, delete_folder, download_folder, rename_folder
 from .shares import (
     manage_shares,
@@ -57,6 +58,7 @@ __all__ = [
     "duplicates",
     "empty_trash",
     "file_versions",
+    "healthz",
     "login_verify",
     "login_view",
     "logout_view",

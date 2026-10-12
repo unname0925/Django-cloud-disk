@@ -11,6 +11,10 @@ services:
     volumes:
       - data:/data
       - backups:/backups
+      # rclone 的設定檔（用 rclone config 建立），上傳備份到雲端時使用
+      - ./rclone:/config/rclone
+      # 把外接硬碟或 NAS 掛進來，並在 .env 設定 BACKUP_COPY_DIR=/offsite
+      # - /mnt/usb-backup:/offsite
     expose:
       - "8000"
 
@@ -18,7 +22,8 @@ services:
     image: caddy:2
     restart: unless-stopped
     depends_on:
-      - web
+      web:
+        condition: service_healthy
     environment:
       DOMAIN: ${DOMAIN}
     ports:

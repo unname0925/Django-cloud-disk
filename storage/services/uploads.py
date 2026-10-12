@@ -5,6 +5,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Sum
 from django.template.defaultfilters import filesizeformat
 
 from ..models import StoredFile, UploadSession, UserProfile, upload_to_user
@@ -29,14 +30,30 @@ def clean_filename(name):
     return name if name not in ("", ".", "..") else "file"
 
 
-def check_upload_allowed(user, sizes):
+def pending_upload_bytes(user, exclude=None):
+    """進行中的分段上傳預留的容量。
+
+    暫存檔在完成前就會佔用硬碟，如果不計入容量，使用者可以同時開很多個
+    不完成的上傳把硬碟塞滿。
+    """
+    sessions = UploadSession.objects.filter(owner=user)
+    if exclude is not None:
+        sessions = sessions.exclude(pk=exclude.pk)
+    return sessions.aggregate(total=Sum("total_size"))["total"] or 0
+
+
+def check_upload_allowed(user, sizes, exclude_session=None):
     """檢查單檔上限與剩餘容量，不允許時丟出 UploadError。"""
     max_size = settings.STORAGE_MAX_UPLOAD_SIZE
     for name, size in sizes:
         if size > max_size:
             raise UploadError(f"「{name}」超過單檔上限 {filesizeformat(max_size)}", 413)
 
-    remaining = UserProfile.for_user(user).remaining_bytes
+    remaining = max(
+        UserProfile.for_user(user).remaining_bytes
+        - pending_upload_bytes(user, exclude=exclude_session),
+        0,
+    )
     total = sum(size for _, size in sizes)
     if total > remaining:
         raise UploadError(
@@ -159,7 +176,8 @@ def finalize(session):
     """組合完成的分段上傳，回傳 UploadResult。"""
     try:
         # 上傳期間可能已經用掉其他容量，完成前再檢查一次
-        check_upload_allowed(session.owner, [(session.filename, session.total_size)])
+        check_upload_allowed(session.owner, [(session.filename, session.total_size)],
+                             exclude_session=session)
     except UploadError:
         cancel(session)
         raise

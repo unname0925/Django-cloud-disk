@@ -77,16 +77,27 @@ def _log_login_failure(request, action, username):
     activity.record(request, action, user=user, username=username)
 
 
+def _registration_key(request):
+    return f"registrations:{client_ip(request)}"
+
+
 def register(request):
     if not settings.ALLOW_REGISTRATION:
         raise Http404("目前未開放註冊")
     if request.user.is_authenticated:
         return redirect("storage:browse")
 
+    # 開放註冊時，避免同一個來源大量建立帳號佔用空間
+    registrations = cache.get(_registration_key(request), 0)
+    if registrations >= settings.REGISTRATIONS_PER_IP_PER_DAY:
+        messages.error(request, "這個網路今天已經註冊太多帳號，請明天再試")
+        return render(request, "storage/register.html", {"form": None}, status=429)
+
     if request.method == "POST":
         form = RegisterForm(request.POST)
         if form.is_valid():
             user = form.save()
+            cache.set(_registration_key(request), registrations + 1, 24 * 60 * 60)
             login(request, user)
             messages.success(request, "註冊成功")
             return redirect("storage:browse")
