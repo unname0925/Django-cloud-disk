@@ -1,0 +1,12 @@
+{% autoescape off %}{{ user.get_username }} 你好：
+
+你的 Cloud Drive 帳號剛剛從一個新的裝置或網路登入。
+
+時間：{{ log.created_time|date:"Y-m-d H:i" }}
+IP：{{ log.ip|default:"未知" }}
+裝置：{{ log.device|default:"未知" }}
+
+如果是你本人，可以忽略這封信。
+如果不是你，請立即變更密碼並啟用兩步驟驗證：
+{{ security_url }}
+{% endautoescape %}

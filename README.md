@@ -7,6 +7,8 @@
 - **帳號**：註冊、登入、登出、變更密碼；可關閉公開註冊；同一 IP 連續登入失敗會暫時鎖定
 - **活動紀錄**：記錄登入（含 IP 與裝置）與檔案操作；登入時提醒上次登入的時間與之後失敗的登入嘗試次數
 - **兩步驟驗證**：支援 Google Authenticator 等 TOTP App，掃描 QR code 即可啟用，附 10 組一次性備用碼；後台登入也必須經過同一套流程
+- **手機與 App**：手機上自動改成卡片式排版，可以直接拍照上傳；支援「加到主畫面」當成 App 使用（PWA），離線時顯示提示頁面
+- **Email 通知**：新裝置登入、分享連結被下載、容量快滿時寄信通知（可個別關閉）；忘記密碼時可以用確認過的 Email 重設
 - **上傳**：拖曳到頁面任何地方即可上傳，有進度條；大檔案分段上傳，斷線自動重試，關掉頁面後重新上傳同一個檔案會從中斷處繼續
 - **檔案**：下載、重新命名、移動、刪除；列表模式可勾選多個項目一次移動、刪除或打包 zip
 - **版本歷史**：上傳同名檔案到同一個資料夾時保留舊版本，可下載或還原；每個檔案保留最近 10 個版本
@@ -155,6 +157,36 @@ caddy run --config deploy\Caddyfile.local
 - Docker 每 30 秒呼叫一次健康檢查，`docker compose ps` 會顯示 `healthy` 或 `unhealthy`；Caddy 會等網站健康後才啟動。也可以用 [Uptime Kuma](https://github.com/louislam/uptime-kuma) 等工具監控這個網址，出問題時通知你。
 - 啟動時會執行 `python manage.py check --deploy`，列出設定上的問題，例如 `SECRET_URL_PREFIX` 還是預設值、正式環境開放註冊、沒有啟用 HTTPS。管理員登入網站時，頁面上方也會顯示這些提醒。
 
+## Email 通知
+
+設定 SMTP 後就會啟用寄信，沒有設定時所有寄信相關功能都會隱藏。以 Gmail 為例：
+
+1. Google 帳戶啟用兩步驟驗證後，到「應用程式密碼」產生一組 16 碼密碼。
+2. 在 `.env` 加上：
+
+```bash
+EMAIL_HOST=smtp.gmail.com
+EMAIL_HOST_USER=你的帳號@gmail.com
+EMAIL_HOST_PASSWORD=應用程式密碼
+SITE_URL=https://mydisk.duckdns.org   # 信中連結使用的網址
+```
+
+3. 寄一封測試信確認設定正確：`python manage.py send_test_email 你的信箱`
+
+使用方式：
+
+- 每位使用者在「帳號安全 → Email 與通知」設定 Email，點確認信中的連結後才會收到通知。變更 Email 需要輸入目前的密碼，避免別人改成自己的信箱來重設你的密碼。
+- 通知：新裝置（新的 IP 或瀏覽器）登入、分享連結被下載（同一個連結一小時最多一封）、容量超過 90%（用量降到 80% 以下後才會再次提醒）。
+- 忘記密碼：登入頁的「忘記密碼？」只會寄到確認過的 Email，連結 1 小時內有效且只能使用一次；同一個 IP 每小時最多申請 5 次。有啟用兩步驟驗證的帳號，重設密碼後登入仍然需要驗證碼。
+- 寄信失敗不會影響網站操作，錯誤會記錄在伺服器 log 中。
+- 開發時可以設定 `EMAIL_ENABLED=True`，信件內容會直接印在終端機。
+
+## 手機與 PWA
+
+- 用手機瀏覽器開啟網站，選「加到主畫面」（iPhone 在 Safari 的分享選單中，Android 在 Chrome 的選單中）就能像 App 一樣全螢幕開啟。
+- 需要 HTTPS 才能安裝（本機的 `localhost` 除外）。
+- Service Worker 只快取 CSS、JS、圖示與離線頁面，**不會快取任何檔案或頁面內容**，私人資料不會留在手機的快取裡。
+
 ## 備份與還原
 
 ```bash
@@ -245,6 +277,14 @@ Windows 可以用「工作排程器」每天執行 `python manage.py backup`。
 | `HEALTH_MIN_FREE_PERCENT` | `5` | 硬碟剩餘空間低於這個百分比時，健康檢查發出警告 |
 | `HEALTH_MAX_BACKUP_AGE_HOURS` | `36` | 備份超過這麼多小時沒有更新時，健康檢查發出警告 |
 | `REGISTRATIONS_PER_IP_PER_DAY` | `3` | 開放註冊時，同一個 IP 每天最多註冊幾個帳號 |
+| `EMAIL_HOST` | 空 | SMTP 主機，設定後才會寄信，例如 `smtp.gmail.com` |
+| `EMAIL_PORT` | `587` | SMTP 連接埠 |
+| `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` | 空 | SMTP 帳號與密碼（Gmail 請用應用程式密碼） |
+| `EMAIL_USE_TLS` / `EMAIL_USE_SSL` | `True` / `False` | 加密方式；使用 465 埠時改成 `EMAIL_USE_SSL=True` |
+| `DEFAULT_FROM_EMAIL` | 同 `EMAIL_HOST_USER` | 寄件者 |
+| `SITE_URL` | 空 | 信中連結使用的網址，例如 `https://mydisk.duckdns.org` |
+| `QUOTA_WARNING_PERCENT` | `90` | 用量超過這個百分比時寄出容量警告 |
+| `PASSWORD_RESETS_PER_IP_PER_HOUR` | `5` | 同一個 IP 每小時最多申請幾次重設密碼 |
 | `STORAGE_THUMBNAIL_MAX_PIXELS` | `100000000` | 超過這個像素數的圖片不產生縮圖 |
 | `LOGIN_MAX_ATTEMPTS` | `5` | 同一 IP 連續登入失敗幾次後鎖定 |
 | `LOGIN_LOCKOUT_SECONDS` | `900` | 鎖定秒數 |

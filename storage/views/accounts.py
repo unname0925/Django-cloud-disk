@@ -13,9 +13,15 @@ from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
-from ..forms import DisableTwoFactorForm, RegisterForm, TwoFactorCodeForm
-from ..models import ActivityLog
-from ..services import activity, twofactor
+from ..forms import (
+    DisableTwoFactorForm,
+    EmailChangeForm,
+    NotificationSettingsForm,
+    RegisterForm,
+    TwoFactorCodeForm,
+)
+from ..models import ActivityLog, UserProfile
+from ..services import activity, notifications, twofactor
 from .common import client_ip
 
 # 輸入密碼後，必須在這段時間內完成兩步驟驗證
@@ -59,6 +65,7 @@ def _complete_login(request, user, backend, next_url):
     cache.delete(_failure_key(request))
     login(request, user, backend=backend)
     log = activity.record(request, ActivityLog.Action.LOGIN, user=user)
+    notifications.notify_new_login(request, user, log)
     previous, failures = activity.login_summary(user, log)
     messages.success(request, "登入成功")
     if previous is not None:
@@ -98,6 +105,9 @@ def register(request):
         if form.is_valid():
             user = form.save()
             cache.set(_registration_key(request), registrations + 1, 24 * 60 * 60)
+            if user.email and notifications.enabled():
+                notifications.send_verification(request, user, user.email)
+                messages.info(request, f"已寄出確認信到 {user.email}，確認後才會收到通知")
             login(request, user)
             messages.success(request, "註冊成功")
             return redirect("storage:browse")
@@ -202,6 +212,12 @@ def security(request):
         "disable_form": DisableTwoFactorForm(user=request.user),
         "regenerate_form": TwoFactorCodeForm(),
         "recent_logins": activity.recent_logins(request.user),
+        "profile": UserProfile.for_user(request.user),
+        "email_enabled": notifications.enabled(),
+        "email_form": EmailChangeForm(user=request.user),
+        "notification_form": NotificationSettingsForm(
+            instance=UserProfile.for_user(request.user)
+        ),
     }
     return render(request, "storage/security.html", context)
 

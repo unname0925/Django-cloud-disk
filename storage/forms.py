@@ -1,11 +1,11 @@
 from datetime import timedelta
 
 from django import forms
-from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.forms import PasswordResetForm, UserCreationForm
 from django.contrib.auth.models import User
 from django.utils import timezone
 
-from .models import Folder
+from .models import Folder, UserProfile
 from .services.uploads import UploadError, check_upload_allowed
 
 INVALID_NAME_CHARS = set('/\\:*?"<>|')
@@ -190,3 +190,38 @@ class ChunkForm(forms.Form):
 
 class SharePasswordForm(forms.Form):
     password = forms.CharField(label="密碼", widget=forms.PasswordInput(attrs={"autofocus": True}))
+
+
+class EmailChangeForm(forms.Form):
+    email = forms.EmailField(label="新的 Email")
+    password = forms.CharField(
+        label="目前的密碼",
+        help_text="變更 Email 需要確認身分，避免別人用你的帳號改成他的信箱來重設密碼",
+        widget=forms.PasswordInput,
+    )
+
+    def __init__(self, *args, user, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = user
+
+    def clean_password(self):
+        password = self.cleaned_data["password"]
+        if not self.user.check_password(password):
+            raise forms.ValidationError("密碼不正確")
+        return password
+
+
+class NotificationSettingsForm(forms.ModelForm):
+    class Meta:
+        model = UserProfile
+        fields = ["notify_new_login", "notify_share_download", "notify_quota"]
+
+
+class VerifiedEmailPasswordResetForm(PasswordResetForm):
+    """只寄重設密碼信到已驗證的信箱。"""
+
+    def get_users(self, email):
+        return (
+            user for user in super().get_users(email)
+            if UserProfile.for_user(user).email_verified
+        )

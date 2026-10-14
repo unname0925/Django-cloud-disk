@@ -139,3 +139,7 @@ body.dragging::after { content: "放開即可上傳"; position: fixed; inset: 0;
   .batch-bar select, .batch-bar button { flex: 1 1 auto; }
   .lightbox button { font-size: 2rem; }
 }
+
+/* 勾選框與文字放在同一行 */
+form p label.checkbox { display: inline-flex; gap: 8px; align-items: center; font-weight: normal; }
+details summary { cursor: pointer; color: var(--accent); margin-bottom: 8px; }

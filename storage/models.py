@@ -73,6 +73,14 @@ class UserProfile(models.Model):
     # 最後一次成功使用的時間區段，用來防止同一組驗證碼被重複使用
     totp_last_step = models.BigIntegerField(default=0)
 
+    # Email：驗證過的信箱才會收到通知，也才能用來重設密碼
+    email_verified = models.BooleanField(default=False)
+    notify_new_login = models.BooleanField("新裝置登入時通知我", default=True)
+    notify_share_download = models.BooleanField("分享連結被下載時通知我", default=True)
+    notify_quota = models.BooleanField("容量快滿時通知我", default=True)
+    # 容量警告已寄出，用量降下來之前不再重複寄
+    quota_warning_sent = models.BooleanField(default=False)
+
     def __str__(self):
         return f"{self.user.username} profile"
 
@@ -346,6 +354,8 @@ class ActivityLog(models.Model):
         SHARE_CREATE = "share_create", "建立分享連結"
         SHARE_REVOKE = "share_revoke", "撤銷分享連結"
         SHARE_DOWNLOAD = "share_download", "分享連結被下載"
+        EMAIL_CHANGE = "email_change", "變更 Email"
+        PASSWORD_RESET = "password_reset", "透過 Email 重設密碼"
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.CASCADE,

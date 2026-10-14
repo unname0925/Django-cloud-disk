@@ -12,6 +12,15 @@ from .accounts import (
 from .batch import batch_action
 from .browse import browse
 from .duplicates import duplicates
+from .email import (
+    PasswordResetCompleteView,
+    PasswordResetConfirmView,
+    PasswordResetDoneView,
+    PasswordResetView,
+    change_email,
+    notification_settings,
+    verify_email,
+)
 from .files import (
     delete_file,
     download_file,
@@ -45,6 +54,13 @@ from .uploads import cancel_upload, start_upload, upload_session
 from .versions import delete_version, download_version, file_versions, restore_version
 
 __all__ = [
+    "PasswordResetCompleteView",
+    "PasswordResetConfirmView",
+    "PasswordResetDoneView",
+    "PasswordResetView",
+    "change_email",
+    "notification_settings",
+    "verify_email",
     "activity_log",
     "batch_action",
     "browse",

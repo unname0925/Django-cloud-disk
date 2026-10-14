@@ -8,7 +8,7 @@ from django.views.decorators.http import require_POST
 
 from ..forms import SharePasswordForm, ShareLinkForm
 from ..models import ActivityLog, Folder, ShareLink, StoredFile
-from ..services import activity, shares
+from ..services import activity, notifications, shares
 from ..services.archive import build_zip
 from .common import (
     client_ip,
@@ -166,8 +166,9 @@ def _count_download(request, link, item):
         return False
     shares.grant_continuation(request, link, item)
     # 記在分享者的紀錄裡，讓分享者知道連結被誰下載
-    activity.record(request, ActivityLog.Action.SHARE_DOWNLOAD, user=link.owner,
-                    target=link.target_name)
+    log = activity.record(request, ActivityLog.Action.SHARE_DOWNLOAD, user=link.owner,
+                          target=link.target_name)
+    notifications.notify_share_download(request, link, log)
     return True
 
 

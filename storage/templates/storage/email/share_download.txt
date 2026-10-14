@@ -1,0 +1,12 @@
+{% autoescape off %}{{ user.get_username }} 你好：
+
+你分享的「{{ link.target_name }}」剛剛被下載了。
+
+時間：{{ log.created_time|date:"Y-m-d H:i" }}
+IP：{{ log.ip|default:"未知" }}
+裝置：{{ log.device|default:"未知" }}
+目前下載次數：{{ link.download_count|add:1 }}{% if link.max_downloads %} / {{ link.max_downloads }}{% endif %}
+
+同一個連結一小時內最多通知一次。管理分享連結：
+{{ shares_url }}
+{% endautoescape %}

@@ -1,0 +1,12 @@
+{% autoescape off %}{{ user.get_username }} 你好：
+
+你的 Cloud Drive 已經使用 {{ percent }}% 的容量（{{ profile.used_bytes|filesizeformat }} / {{ profile.quota|filesizeformat }}）。
+容量用完後就無法再上傳檔案。
+
+可以這樣釋出空間：
+・清空資源回收筒（回收筒裡的檔案仍會佔用容量）：{{ trash_url }}
+・刪除重複的檔案：{{ duplicates_url }}
+・刪除不需要的舊版本
+
+也可以請管理員調高你的容量。
+{% endautoescape %}
