@@ -37,6 +37,12 @@ def configuration_warnings():
             "storage.W003",
             "沒有啟用 HTTPS（USE_HTTPS=False），帳號密碼與檔案會以明文傳送",
         ))
+    if settings.EMAIL_ENABLED and "*" in settings.ALLOWED_HOSTS:
+        warnings.append((
+            "storage.W005",
+            "已啟用寄信但 ALLOWED_HOSTS 包含 *，重設密碼信中的連結可能被偽造的網址取代；"
+            "請把 ALLOWED_HOSTS 設成實際的網域，或設定 SITE_URL",
+        ))
     if settings.TRUST_PROXY_HEADERS and not settings.USE_HTTPS:
         warnings.append((
             "storage.W004",

@@ -99,6 +99,35 @@ ACTIVITY_LOG_RETENTION_DAYS = env_int("ACTIVITY_LOG_RETENTION_DAYS", 180)
 LOGIN_MAX_ATTEMPTS = env_int("LOGIN_MAX_ATTEMPTS", 5)
 LOGIN_LOCKOUT_SECONDS = env_int("LOGIN_LOCKOUT_SECONDS", 15 * 60)
 
+# --- Email ------------------------------------------------------------------
+
+# 設定 EMAIL_HOST 後才會寄信（新裝置登入、分享被下載、容量快滿、忘記密碼）。
+# Gmail 範例：EMAIL_HOST=smtp.gmail.com、EMAIL_HOST_USER=你的帳號、
+# EMAIL_HOST_PASSWORD=應用程式密碼（不是 Gmail 登入密碼）
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
+EMAIL_PORT = env_int("EMAIL_PORT", 587)
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_SSL = env_bool("EMAIL_USE_SSL", False)
+EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", not EMAIL_USE_SSL)
+EMAIL_TIMEOUT = 15
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL") or EMAIL_HOST_USER or "cloud-drive@localhost"
+EMAIL_BACKEND = os.environ.get(
+    "EMAIL_BACKEND",
+    "django.core.mail.backends.smtp.EmailBackend" if EMAIL_HOST
+    else "django.core.mail.backends.console.EmailBackend",
+)
+# 開發時可以設定 EMAIL_ENABLED=True，信件內容會印在終端機
+EMAIL_ENABLED = env_bool("EMAIL_ENABLED", bool(EMAIL_HOST))
+# 信件中連結使用的網址，例如 https://disk.example.com；留空時使用請求的網址
+SITE_URL = os.environ.get("SITE_URL", "").rstrip("/")
+
+# 用量超過這個百分比時寄出容量警告
+QUOTA_WARNING_PERCENT = env_int("QUOTA_WARNING_PERCENT", 90)
+# 重設密碼連結的有效時間（秒）
+PASSWORD_RESET_TIMEOUT = 60 * 60
+PASSWORD_RESETS_PER_IP_PER_HOUR = env_int("PASSWORD_RESETS_PER_IP_PER_HOUR", 5)
+
 # --- Django 設定 ------------------------------------------------------------
 
 INSTALLED_APPS = [

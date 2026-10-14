@@ -21,9 +21,9 @@
       <tr>
         <td class="check"><input type="checkbox" name="folder" value="{{ sub.id }}" aria-label="選取 {{ sub.name }}"></td>
         <td>📁 <a href="{% url 'storage:browse_folder' sub.id %}">{{ sub.name }}</a></td>
-        {% if query %}<td class="muted">{{ sub.parent.name|default:"根目錄" }}</td>{% endif %}
-        <td class="muted">—</td>
-        <td class="muted">{{ sub.created_time|date:"Y-m-d H:i" }}</td>
+        {% if query %}<td class="muted" data-label="位置">{{ sub.parent.name|default:"根目錄" }}</td>{% endif %}
+        <td class="muted hide-mobile">—</td>
+        <td class="muted" data-label="建立時間">{{ sub.created_time|date:"Y-m-d H:i" }}</td>
         <td class="actions">
           <a href="{% url 'storage:download_folder' sub.id %}">下載 zip</a>
           <a href="{% url 'storage:manage_folder_shares' sub.id %}">分享</a>
@@ -36,9 +36,9 @@
       <tr>
         <td class="check"><input type="checkbox" name="file" value="{{ f.id }}" aria-label="選取 {{ f.original_name }}"></td>
         <td>📄 {% if f.is_previewable %}<a href="{% url 'storage:preview_file' f.id %}" target="_blank" rel="noopener">{{ f.original_name }}</a>{% else %}{{ f.original_name }}{% endif %}</td>
-        {% if query %}<td class="muted">{{ f.folder.name|default:"根目錄" }}</td>{% endif %}
-        <td>{{ f.file_size|filesizeformat }}</td>
-        <td>{{ f.uploaded_time|date:"Y-m-d H:i" }}</td>
+        {% if query %}<td class="muted" data-label="位置">{{ f.folder.name|default:"根目錄" }}</td>{% endif %}
+        <td data-label="大小">{{ f.file_size|filesizeformat }}</td>
+        <td data-label="上傳時間">{{ f.uploaded_time|date:"Y-m-d H:i" }}</td>
         <td class="actions">
           <a href="{% url 'storage:download_file' f.id %}">下載</a>
           <a href="{% url 'storage:manage_shares' f.id %}">分享</a>

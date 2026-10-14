@@ -30,6 +30,39 @@
 </div>
 
 <div class="card">
+  <h2>Email 與通知</h2>
+  {% if email_enabled %}
+    <p>
+      目前的 Email：
+      {% if user.email %}
+        <strong>{{ user.email }}</strong>
+        {% if profile.email_verified %}<span class="badge ok">已確認</span>{% else %}<span class="badge off">尚未確認</span>{% endif %}
+      {% else %}<span class="muted">尚未設定</span>{% endif %}
+    </p>
+    <p class="muted">確認過的 Email 才會收到通知，忘記密碼時也可以用它重設。</p>
+    <details{% if not profile.email_verified %} open{% endif %}>
+      <summary>{% if user.email %}變更 Email{% else %}設定 Email{% endif %}</summary>
+      <form method="post" action="{% url 'storage:change_email' %}" class="narrow">
+        {% csrf_token %}
+        {{ email_form.as_p }}
+        <button type="submit">寄出確認信</button>
+      </form>
+    </details>
+
+    <h3>通知設定</h3>
+    <form method="post" action="{% url 'storage:notification_settings' %}">
+      {% csrf_token %}
+      {% for field in notification_form %}
+        <p><label class="checkbox">{{ field }} {{ field.label }}</label></p>
+      {% endfor %}
+      <button type="submit" class="btn">儲存通知設定</button>
+    </form>
+  {% else %}
+    <p class="muted">管理員尚未設定寄信功能，目前無法寄送通知或用 Email 重設密碼。</p>
+  {% endif %}
+</div>
+
+<div class="card">
   <h2>最近的登入</h2>
   {% include "storage/includes/activity_table.html" with logs=recent_logins %}
   <p><a href="{% url 'storage:activity_log' %}">查看完整的活動紀錄</a></p>

@@ -10,6 +10,7 @@
       {{ form.as_p }}
       <input type="hidden" name="next" value="{{ next }}">
       <button type="submit">登入</button>
+      {% if email_enabled %}<a class="btn" href="{% url 'storage:password_reset' %}">忘記密碼？</a>{% endif %}
     </form>
   {% endif %}
 </div>

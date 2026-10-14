@@ -8,7 +8,7 @@ from django.views.decorators.cache import cache_control
 
 from ..forms import MoveFileForm, RenameFileForm, UploadForm
 from ..models import ActivityLog, Folder
-from ..services import activity
+from ..services import activity, notifications
 from ..services import trash
 from ..services.thumbnails import get_thumbnail_path
 from ..services.uploads import store_uploaded_file
@@ -28,6 +28,7 @@ def upload(request):
                 activity.log_upload(request, result)
                 if result.message():
                     messages.info(request, result.message())
+            notifications.check_quota(request, request.user)
             return redirect_to_folder(folder)
     else:
         folder_param = request.GET.get("folder", "")

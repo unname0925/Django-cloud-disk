@@ -79,6 +79,11 @@ class ConfigurationCheckTests(StorageTestCase):
     def test_hardened_settings_have_no_warnings(self):
         self.assertEqual(health.configuration_warnings(), [])
 
+    @override_settings(**HARDENED, EMAIL_ENABLED=True, ALLOWED_HOSTS=["*"])
+    def test_email_with_wildcard_hosts_warns(self):
+        codes = {code for code, _ in health.configuration_warnings()}
+        self.assertEqual(codes, {"storage.W005"})
+
     @override_settings(DEBUG=True, SECRET_URL_PREFIX="x8FqP2vM4wA1")
     def test_development_is_not_checked(self):
         self.assertEqual(health.configuration_warnings(), [])

@@ -1,0 +1,16 @@
+{% load static %}<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>目前離線 · Cloud Drive</title>
+  <link rel="stylesheet" href="{% static 'storage/app.css' %}">
+</head>
+<body>
+  <div class="card narrow">
+    <h2>☁️ 目前沒有網路連線</h2>
+    <p>Cloud Drive 需要連上網路才能瀏覽與上傳檔案。恢復連線後請重新整理頁面。</p>
+    <a class="btn btn-primary" href="{% url 'storage:browse' %}">重新整理</a>
+  </div>
+</body>
+</html>

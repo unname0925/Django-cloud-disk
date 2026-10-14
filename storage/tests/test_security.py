@@ -14,9 +14,9 @@ class SecurityHeaderTests(StorageTestCase):
         self.assertIn("script-src 'self'", policy)
         self.assertNotIn("unsafe-inline", policy)
         self.assertIn("frame-ancestors 'none'", policy)
-        # <style> 區塊帶有與標頭相同的 nonce
-        nonce = policy.split("'nonce-")[1].split("'")[0]
-        self.assertContains(response, f'<style nonce="{nonce}">')
+        # 樣式都放在外部的 app.css，頁面上沒有內嵌的 <style>
+        self.assertContains(response, "storage/app.css")
+        self.assertNotContains(response, "<style")
 
     def test_templates_have_no_inline_scripts(self):
         stored = self.upload_as(self.alice)

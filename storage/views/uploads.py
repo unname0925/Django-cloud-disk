@@ -8,7 +8,7 @@ from django.views.decorators.http import require_http_methods, require_POST
 
 from ..forms import ChunkedUploadStartForm, ChunkForm
 from ..models import UploadSession
-from ..services import activity, uploads
+from ..services import activity, notifications, uploads
 
 
 def _session_json(session, result=None):
@@ -29,6 +29,7 @@ def _note_result(request, result):
     if result is None:
         return
     activity.log_upload(request, result)
+    notifications.check_quota(request, request.user)
     # 訊息會在上傳完成、前端重新整理頁面後顯示
     if result.message():
         messages.info(request, result.message())

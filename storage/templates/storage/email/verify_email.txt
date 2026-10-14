@@ -1,0 +1,10 @@
+{% autoescape off %}{{ user.get_username }} 你好：
+
+請點下面的連結，確認這個信箱屬於你：
+{{ link }}
+
+連結 {{ hours }} 小時內有效。確認後，你會在這個信箱收到 Cloud Drive 的通知，
+忘記密碼時也可以用它重設。
+
+如果你沒有要求變更 Email，請忽略這封信，你的帳號不會有任何變動。
+{% endautoescape %}

@@ -12,6 +12,15 @@ from .accounts import (
 from .batch import batch_action
 from .browse import browse
 from .duplicates import duplicates
+from .email import (
+    PasswordResetCompleteView,
+    PasswordResetConfirmView,
+    PasswordResetDoneView,
+    PasswordResetView,
+    change_email,
+    notification_settings,
+    verify_email,
+)
 from .files import (
     delete_file,
     download_file,
@@ -22,6 +31,7 @@ from .files import (
     upload,
 )
 from .health import healthz
+from .pwa import manifest, offline, service_worker
 from .folders import create_folder, delete_folder, download_folder, rename_folder
 from .shares import (
     manage_shares,
@@ -44,6 +54,13 @@ from .uploads import cancel_upload, start_upload, upload_session
 from .versions import delete_version, download_version, file_versions, restore_version
 
 __all__ = [
+    "PasswordResetCompleteView",
+    "PasswordResetConfirmView",
+    "PasswordResetDoneView",
+    "PasswordResetView",
+    "change_email",
+    "notification_settings",
+    "verify_email",
     "activity_log",
     "batch_action",
     "browse",
@@ -61,9 +78,11 @@ __all__ = [
     "healthz",
     "login_verify",
     "login_view",
+    "manifest",
     "logout_view",
     "manage_shares",
     "move_file",
+    "offline",
     "my_shares",
     "preview_file",
     "purge_file",
@@ -77,6 +96,7 @@ __all__ = [
     "restore_version",
     "revoke_share",
     "security",
+    "service_worker",
     "shared_download",
     "shared_file",
     "shared_folder_file",
