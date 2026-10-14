@@ -7,6 +7,10 @@ app_name = "storage"
 urlpatterns = [
     # 健康檢查（不需登入）
     path("healthz/", views.healthz, name="healthz"),
+    # PWA（不需登入）
+    path("manifest.webmanifest", views.manifest, name="manifest"),
+    path("sw.js", views.service_worker, name="service_worker"),
+    path("offline/", views.offline, name="offline"),
     # 帳號
     path("register/", views.register, name="register"),
     path("login/", views.login_view, name="login"),

@@ -111,15 +111,17 @@
 
   Uploader.prototype.bind = function () {
     var self = this;
-    var input = this.zone.querySelector("[data-upload-input]");
-    var pick = this.zone.querySelector("[data-upload-pick]");
-    if (pick && input) {
-      pick.addEventListener("click", function () { input.click(); });
+    // 每個「選擇檔案」按鈕對應一個隱藏的 input（一般檔案、手機拍照）
+    this.zone.querySelectorAll("[data-upload-pick]").forEach(function (pick) {
+      var input = self.zone.querySelector(pick.dataset.uploadPick);
+      if (input) pick.addEventListener("click", function () { input.click(); });
+    });
+    this.zone.querySelectorAll("[data-upload-input]").forEach(function (input) {
       input.addEventListener("change", function () {
         self.add(input.files);
         input.value = "";
       });
-    }
+    });
 
     // 有表單時（上傳頁面）攔截送出，改用分段上傳
     var form = this.zone.querySelector("form[data-upload-form]");

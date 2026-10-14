@@ -46,6 +46,18 @@
   overlay.addEventListener("click", function (event) {
     if (event.target === overlay) close();
   });
+  // 手機上左右滑動切換照片
+  var touchStartX = null;
+  overlay.addEventListener("touchstart", function (event) {
+    touchStartX = event.changedTouches[0].clientX;
+  }, { passive: true });
+  overlay.addEventListener("touchend", function (event) {
+    if (touchStartX === null) return;
+    var distance = event.changedTouches[0].clientX - touchStartX;
+    touchStartX = null;
+    if (Math.abs(distance) > 50) show(current + (distance < 0 ? 1 : -1));
+  });
+
   document.addEventListener("keydown", function (event) {
     if (overlay.hidden) return;
     if (event.key === "Escape") close();
